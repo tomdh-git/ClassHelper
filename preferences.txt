@@ -1,4 +1,0 @@
-# Use this carefully, as if the times are too limited, it wont show anything.
-# Input times with this format: 10:00am or 4:30pm
-Preferred Start Time (when do you want your first class to be): 
-Preferred End Time (what time do you want your classes to end):
