@@ -8,6 +8,8 @@ import re
 from itertools import product
 import msvcrt
 
+#this is a github test
+
 # pip install selenium
 
 #loads from file. result saved to read.txt. read from read.txt and optimize
