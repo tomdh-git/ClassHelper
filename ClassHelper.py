@@ -7,6 +7,7 @@ import time
 import re
 from itertools import product
 import msvcrt
+import math
 
 def filestatus(filename):
     if not filename.exists(): return False
@@ -62,7 +63,8 @@ def time_conflicts(schedule):
     with pref.open('r') as file:
         for line in file:
             line = line.strip()
-            if line and not line.startswith("#"): preflist.append(line.split()[-1])
+            if line and not line.startswith("#") and not line.startswith("Optimize based on Weekly Free Time? (True or False):"): preflist.append(line.split()[-1])
+    free_time = 0
     selected_times = []
     for time_slot in schedule:
         days, times = time_slot.split(' ')
@@ -79,7 +81,8 @@ def time_conflicts(schedule):
             prefstart = 0
             prefend = 1440
         for s_days, s_start, s_end in selected_times:
-            if (start<prefstart or s_start<prefstart or end>prefend or s_end>prefend) or (any(d in s_days for d in days) and not (end <= s_start or start >= s_end)): return True
+            if (start<prefstart or s_start<prefstart or end>prefend or s_end>prefend) or (any(d in s_days for d in days) and not (end <= s_start or start >= s_end)): 
+                return True
         selected_times.append((days, start, end))
     return False
 
@@ -98,21 +101,90 @@ def main1():
     timedict = {}
     script_dir = Path(__file__).parent
     courses = script_dir / "courses.txt"
+    pref = script_dir / "preferences.txt"
     res = script_dir / "result.txt"
     with res.open('w') as file: file.write("# Here are your schedules!:\n")
     choice1(timedict)
     schedules = generate_valid_schedules(timedict)
-    print(f"Found {len(schedules)} valid schedule(s).")
-    for i, s in enumerate(schedules, 1):
-        with res.open('a') as file: file.write(f"Schedule {i}:"+"\n")
-        for (crn, time), course in zip(s, timedict.keys()):
-            line = f"  {course}: CRN {crn} | {time}"
-            with res.open('a') as file: file.write(line+"\n")
-    print("Wrote to res.txt!")
+    with pref.open('r') as file:
+        for line in file:
+            line = line.strip()
+            if line and not line.startswith("#") and not line.startswith("Preferred"): optimize = line.split()[-1]
+    if optimize.upper() == "FALSE":
+        print(f"Found {len(schedules)} valid schedule(s).")
+        for i, s in enumerate(schedules, 1):
+            with res.open('a') as file: file.write(f"Schedule {i}:"+"\n")
+            for (crn, time), course in zip(s, timedict.keys()):
+                line = f"  {course}: CRN {crn} | {time}"
+                with res.open('a') as file: file.write(line+"\n")
+        print("Wrote to res.txt!")
+    else:
+        print("Optimizing by free time!")
+        timelist = []
+        #print(schedules)
+        for schedule in schedules: #for each schedule
+            freetime(schedule,timelist)
+        schedules = sorted(timelist, key=lambda x: x[0])
+        print(f"Found {len(schedules)} valid schedule(s).")
+        for i, s in enumerate(schedules, 1):
+            with res.open('a') as file: file.write(f"Schedule {i}:\nWeekly Free Time: {s[0]} minutes ({s[0]//60} hours {s[0]%60} mins)\n")
+            for (crn, time), course in zip(s[1], timedict.keys()):
+                line = f"  {course}: CRN {crn} | {time}"
+                with res.open('a') as file: file.write(line+"\n")
+        print("Wrote to res.txt!")
     while True:
-        print("Press any key to continue...")
-        msvcrt.getch()
-        break
+            print("Press any key to continue...")
+            msvcrt.getch()
+            break
+    
+    
+def freetime(schedule,timelist):
+    DAY_START = 7 * 60     # 7:00 AM in minutes
+    DAY_END = 23 * 60      # 11:00 PM in minutes
+    day_map = {'M': [], 'T': [], 'W': [], 'R': [], 'F': [], 'S': [], 'U': []}
+
+    def to_minutes(t):
+        h, m = map(int, t[:-2].split(':'))
+        period = t[-2:]
+        h = h % 12 + (12 if period == 'pm' else 0)
+        return h * 60 + m
+
+    # Step 1: Split by day and convert time
+    for entry in schedule:
+        daystr, timerange = entry[1].split()
+        start, end = timerange.split('-')
+        start_min = to_minutes(start)
+        end_min = to_minutes(end)
+        for d in daystr:
+            day_map[d].append((start_min, end_min))
+
+    # Step 2: Calculate free time
+    total_free = 0
+    for day, intervals in day_map.items():
+        if not intervals:
+            total_free += (DAY_END - DAY_START)
+            continue
+        intervals.sort()
+        free = 0
+
+        # Before first class
+        if intervals[0][0] > DAY_START:
+            free += intervals[0][0] - DAY_START
+
+        # Between classes
+        for i in range(1, len(intervals)):
+            gap = intervals[i][0] - intervals[i-1][1]
+            if gap > 0:
+                free += gap
+
+        # After last class
+        if intervals[-1][1] < DAY_END:
+            free += DAY_END - intervals[-1][1]
+
+        total_free += free
+    timelist.append((total_free,schedule))
+    #print(f"Total weekly free time: {total_free} for {schedule}")
+    
 
 def choice1(timedict_ref=None):
     script_dir = Path(__file__).parent
@@ -137,7 +209,8 @@ if __name__ == "__main__":
                         +"it wont show anything.\n# Input times with this format:"
                         +" 10:00am or 4:30pm\nPreferred Start Time (when do "
                         +"you want your first class to be): \nPreferred End Time"
-                        +" (what time do you want your classes to end):")
+                        +" (what time do you want your classes to end): \nOptimize"
+                        +" based on Weekly Free Time? (True or False): False")
         courses.write_text("# Write your classes below (Ex: CSE 174, ENG 111, etc.):")
         print("Theres nothing in your input files! Input some classes and preferences (optional).")
         while True:
