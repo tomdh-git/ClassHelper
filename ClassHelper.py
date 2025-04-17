@@ -2,7 +2,6 @@ from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-import time
 import re
 from itertools import product
 import msvcrt
