@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -7,7 +6,10 @@ import time
 import re
 from itertools import product
 import msvcrt
-import math
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
 
 def filestatus(filename):
     if not filename.exists(): return False
@@ -17,6 +19,50 @@ def filestatus(filename):
                 line = line.strip()
                 if line and not line.startswith("#"): return True
     return False
+
+def get_course_info2(content,timedict):
+    driver = webdriver.Chrome()  # Ensure chromedriver is installed
+    for course in content:
+        subject = course[0]
+        coursenum = course[1]
+        print("Searching for", subject, coursenum, "classes next semester.")
+        driver.get("https://www.apps.miamioh.edu/courselist/")
+        time.sleep(0.3)
+        #face to face
+        driver.find_element(By.XPATH, "//label[contains(text(), 'Face-to-Face')]/preceding-sibling::input").click()
+        #term
+        term_dropdown = driver.find_element(By.ID, "termFilter")  # Replace with actual ID
+        term_dropdown.click()
+        term_dropdown.send_keys(Keys.HOME)
+        term_dropdown.send_keys(Keys.ENTER)
+        #campus
+        dropdown_button = WebDriverWait(driver, 0).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".ms-choice")))
+        dropdown_button.click()
+        option = WebDriverWait(driver, 0).until(EC.element_to_be_clickable((By.XPATH, f"//label[contains(., 'Oxford')]")))
+        option.click()
+        dropdown_button.click()
+        #subject
+        dropdown_button = WebDriverWait(driver, 0).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".placeholder")))
+        dropdown_button.click()
+        search_input = WebDriverWait(driver, 0).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ms-search input")))
+        WebDriverWait(driver, 0).until(EC.visibility_of(search_input))
+        #ActionChains(driver).move_to_element(search_input).click().perform()
+        search_input.send_keys(subject+" - ")
+        driver.switch_to.active_element.send_keys(Keys.TAB)
+        driver.switch_to.active_element.send_keys(Keys.SPACE)
+        
+        #coursenum
+        driver.find_element(By.XPATH, "//label[contains(text(), 'Course Number')]/following::input[1]").send_keys(coursenum)
+        driver.switch_to.active_element.send_keys(Keys.ENTER)
+        
+        time.sleep(0.1)
+        elements = driver.find_elements(By.XPATH, "//td")
+        TIME = re.compile(r"\b(M|T|W|R|F|S|U)+\s+\d{1,2}:\d{2}(am|pm)-\d{1,2}:\d{2}(am|pm)\b")
+        CRN = re.compile(r"\b\d{5}\b")
+        crns = [match.group() for text in elements if (match := CRN.search(text.text.strip()))]
+        schedules = [match.group() for text in elements if (match := TIME.search(text.text.strip()))]
+        timedict[(subject, coursenum)] = list(zip(crns, schedules))
+    driver.quit()
 
 def get_course_info(content, timedict):
     driver = webdriver.Chrome()  # Ensure chromedriver is installed
@@ -100,7 +146,6 @@ def generate_valid_schedules(timedict):
 def main1():
     timedict = {}
     script_dir = Path(__file__).parent
-    courses = script_dir / "courses.txt"
     pref = script_dir / "preferences.txt"
     res = script_dir / "result.txt"
     with res.open('w') as file: file.write("# Here are your schedules!:\n")
@@ -109,7 +154,7 @@ def main1():
     with pref.open('r') as file:
         for line in file:
             line = line.strip()
-            if line and not line.startswith("#") and not line.startswith("Preferred"): optimize = line.split()[-1]
+            if line and not line.startswith("#") and not line.startswith("Preferred") and not line.startswith("Schedule"): optimize = line.split()[-1]
     if optimize.upper() == "FALSE":
         print(f"Found {len(schedules)} valid schedule(s).")
         for i, s in enumerate(schedules, 1):
@@ -119,11 +164,9 @@ def main1():
                 with res.open('a') as file: file.write(line+"\n")
         print("Wrote to res.txt!")
     else:
-        print("Optimizing by free time!")
+        print("Optimizing based on free time!")
         timelist = []
-        #print(schedules)
-        for schedule in schedules: #for each schedule
-            freetime(schedule,timelist)
+        for schedule in schedules: freetime(schedule,timelist)
         schedules = sorted(timelist, key=lambda x: x[0])
         print(f"Found {len(schedules)} valid schedule(s).")
         for i, s in enumerate(schedules, 1):
@@ -137,19 +180,15 @@ def main1():
             msvcrt.getch()
             break
     
-    
 def freetime(schedule,timelist):
     DAY_START = 7 * 60     # 7:00 AM in minutes
     DAY_END = 23 * 60      # 11:00 PM in minutes
     day_map = {'M': [], 'T': [], 'W': [], 'R': [], 'F': [], 'S': [], 'U': []}
-
     def to_minutes(t):
         h, m = map(int, t[:-2].split(':'))
         period = t[-2:]
         h = h % 12 + (12 if period == 'pm' else 0)
         return h * 60 + m
-
-    # Step 1: Split by day and convert time
     for entry in schedule:
         daystr, timerange = entry[1].split()
         start, end = timerange.split('-')
@@ -157,8 +196,6 @@ def freetime(schedule,timelist):
         end_min = to_minutes(end)
         for d in daystr:
             day_map[d].append((start_min, end_min))
-
-    # Step 2: Calculate free time
     total_free = 0
     for day, intervals in day_map.items():
         if not intervals:
@@ -166,25 +203,16 @@ def freetime(schedule,timelist):
             continue
         intervals.sort()
         free = 0
-
-        # Before first class
         if intervals[0][0] > DAY_START:
             free += intervals[0][0] - DAY_START
-
-        # Between classes
         for i in range(1, len(intervals)):
             gap = intervals[i][0] - intervals[i-1][1]
             if gap > 0:
                 free += gap
-
-        # After last class
         if intervals[-1][1] < DAY_END:
             free += DAY_END - intervals[-1][1]
-
         total_free += free
     timelist.append((total_free,schedule))
-    #print(f"Total weekly free time: {total_free} for {schedule}")
-    
 
 def choice1(timedict_ref=None):
     script_dir = Path(__file__).parent
@@ -197,7 +225,7 @@ def choice1(timedict_ref=None):
         for line in file:
             line = line.strip()
             if line and not line.startswith("#"): content.append(line.split())
-    get_course_info(content, timedict)
+    get_course_info2(content, timedict)
 
 if __name__ == "__main__":
     script_dir = Path(__file__).parent
