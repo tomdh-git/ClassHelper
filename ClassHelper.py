@@ -53,8 +53,7 @@ def process_course(course):
     except Exception as e:
         print(f"Error processing {subject} {coursenum}: {e}")
         return ((subject, coursenum), [])
-    finally:
-        driver.quit()
+    finally: driver.quit()
 
 def get_course_info2(content, timedict):
     with Pool(processes=5) as pool: results = pool.map(process_course, content)
@@ -94,25 +93,19 @@ def get_course_info3(content,timedict):
         driver.find_element(By.XPATH, "//label[contains(text(), 'Course Number')]/following::input[1]").send_keys(coursenum)
         driver.switch_to.active_element.send_keys(Keys.ENTER)
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "resultsTable_wrapper")))
-        
         elements = driver.find_elements(By.XPATH, "//td")
         TIME = re.compile(r"\b(M|T|W|R|F|S|U)+\s+\d{1,2}:\d{2}(am|pm)-\d{1,2}:\d{2}(am|pm)\b")
         CRN = re.compile(r"\b\d{5}\b")
-        
         schedules = [
             match.group()
             for cell in driver.find_elements(By.CSS_SELECTOR, "td")
             if (match := TIME.search(cell.text.strip()))
         ]
-        
         crns = [
             match.group()
             for cell in driver.find_elements(By.CSS_SELECTOR, "td")
             if (match := CRN.search(cell.text.strip()))
         ]
-        
-        #crns = [match.group() for text in elements if (match := CRN.search(text.text.strip()))]
-        #schedules = [match.group() for text in elements if (match := TIME.search(text.text.strip()))]
         timedict[(subject, coursenum)] = list(zip(crns, schedules))
         reset = driver.find_element(By.ID, "resetSearch")
         reset.click()
@@ -213,8 +206,7 @@ def freetime(schedule,timelist):
         start, end = timerange.split('-')
         start_min = to_minutes(start)
         end_min = to_minutes(end)
-        for d in daystr:
-            day_map[d].append((start_min, end_min))
+        for d in daystr: day_map[d].append((start_min, end_min))
     total_free = 0
     for day, intervals in day_map.items():
         if not intervals:
@@ -222,14 +214,11 @@ def freetime(schedule,timelist):
             continue
         intervals.sort()
         free = 0
-        if intervals[0][0] > DAY_START:
-            free += intervals[0][0] - DAY_START
+        if intervals[0][0] > DAY_START: free += intervals[0][0] - DAY_START
         for i in range(1, len(intervals)):
             gap = intervals[i][0] - intervals[i-1][1]
-            if gap > 0:
-                free += gap
-        if intervals[-1][1] < DAY_END:
-            free += DAY_END - intervals[-1][1]
+            if gap > 0: free += gap
+        if intervals[-1][1] < DAY_END: free += DAY_END - intervals[-1][1]
         total_free += free
     timelist.append((total_free,schedule))
 
@@ -250,10 +239,8 @@ def choice1(timedict_ref=None):
             line = line.strip()
             # CHANGE THIS LINE WHENEVER ADDING NEW PREFERENCES
             if line and not line.startswith("#") and not line.startswith("Preferred") and not line.startswith("Optimize"): multi = line.split()[-1]
-    if multi.upper() == "FALSE":
-        get_course_info3(content, timedict)
-    else:
-        get_course_info2(content, timedict)
+    if multi.upper() == "FALSE": get_course_info3(content, timedict)
+    else: get_course_info2(content, timedict)
 
 if __name__ == "__main__":
     script_dir = Path(__file__).parent
