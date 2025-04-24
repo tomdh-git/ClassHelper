@@ -4,3 +4,4 @@ result.txt
 to_24hr.py
 application.py
 __pycache__
+.gitignore
