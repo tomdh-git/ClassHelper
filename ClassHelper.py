@@ -44,10 +44,15 @@ def process_course(course):
         driver.find_element(By.XPATH, "//label[contains(text(), 'Course Number')]/following::input[1]").send_keys(coursenum)
         driver.switch_to.active_element.send_keys(Keys.ENTER)
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "resultsTable_wrapper")))
-        TIME = re.compile(r"\b(M|T|W|R|F|S|U)+\s+\d{1,2}:\d{2}(am|pm)-\d{1,2}:\d{2}(am|pm)\b")
+        TIME = re.compile(r"\b[MTWRFSU]{1,3}\s+\d{1,2}:\d{2}(?:am|pm)-\d{1,2}:\d{2}(?:am|pm)\b", re.IGNORECASE)
         CRN = re.compile(r"\b\d{5}\b")
         cells = driver.find_elements(By.CSS_SELECTOR, "td")
-        schedules = [match.group() for cell in cells if (match := TIME.search(cell.text.strip()))]
+        schedules = []
+        for cell in cells:
+            a = []
+            matches = TIME.findall(cell.text)
+            for match in matches: a.append(match)
+            if a != []: schedules.append(a)
         crns = [match.group() for cell in cells if (match := CRN.search(cell.text.strip()))]
         return ((subject, coursenum), list(zip(crns, schedules)))
     except Exception as e:
@@ -85,7 +90,6 @@ def get_course_info3(content,timedict):
         dropdown_button.click()
         search_input = WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ms-search input")))
         WebDriverWait(driver, 3).until(EC.visibility_of(search_input))
-        #ActionChains(driver).move_to_element(search_input).click().perform()
         search_input.send_keys(subject+" - ")
         driver.switch_to.active_element.send_keys(Keys.TAB)
         driver.switch_to.active_element.send_keys(Keys.SPACE)
@@ -94,13 +98,15 @@ def get_course_info3(content,timedict):
         driver.switch_to.active_element.send_keys(Keys.ENTER)
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "resultsTable_wrapper")))
         elements = driver.find_elements(By.XPATH, "//td")
-        TIME = re.compile(r"\b(M|T|W|R|F|S|U)+\s+\d{1,2}:\d{2}(am|pm)-\d{1,2}:\d{2}(am|pm)\b")
+        TIME = re.compile(r"\b[MTWRFSU]{1,3}\s+\d{1,2}:\d{2}(?:am|pm)-\d{1,2}:\d{2}(?:am|pm)\b", re.IGNORECASE)
         CRN = re.compile(r"\b\d{5}\b")
-        schedules = [
-            match.group()
-            for cell in driver.find_elements(By.CSS_SELECTOR, "td")
-            if (match := TIME.search(cell.text.strip()))
-        ]
+        cells = driver.find_elements(By.CSS_SELECTOR, "td")
+        schedules = []
+        for cell in cells:
+            a = []
+            matches = TIME.findall(cell.text)
+            for match in matches: a.append(match)
+            if a != []: schedules.append(a)
         crns = [
             match.group()
             for cell in driver.find_elements(By.CSS_SELECTOR, "td")
@@ -113,6 +119,7 @@ def get_course_info3(content,timedict):
     driver.quit()
 
 def time_conflicts(schedule):
+    #print(schedule)
     script_dir = Path(__file__).parent
     pref = script_dir / "preferences.txt"
     preflist = []
@@ -150,7 +157,7 @@ def generate_valid_schedules(timedict):
         if timedict[course] != []: all_sections.append(timedict[course])
     valid_schedules = []
     for combo in product(*all_sections):
-        times = [section[1] for section in combo]
+        times = [time for section in combo for time in section[1]]
         if not time_conflicts(times): valid_schedules.append(combo)
     return valid_schedules
 
@@ -202,7 +209,8 @@ def freetime(schedule,timelist):
         h = h % 12 + (12 if period == 'pm' else 0)
         return h * 60 + m
     for entry in schedule:
-        daystr, timerange = entry[1].split()
+        for time_str in entry[1]:
+            daystr, timerange = time_str.split()
         start, end = timerange.split('-')
         start_min = to_minutes(start)
         end_min = to_minutes(end)
