@@ -2,6 +2,6 @@ courses.txt
 preferences.txt
 result.txt
 to_24hr.py
-application.py
 __pycache__
 .gitignore
+gitcommit.bat
