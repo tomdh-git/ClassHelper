@@ -1,7 +1,10 @@
 import tkinter as tk
-from tkinter import messagebox, filedialog
 from pathlib import Path
+import ClassHelper
+import subprocess
+import sys
 import os
+import threading
 
 # === Globals ===
 optimize_var = None
@@ -62,15 +65,50 @@ def set_placeholder(entry, placeholder):
     entry.bind("<FocusOut>", on_focus_out)
 
 # === Functional Callbacks ===
+        
+def open_courses_editor():
+    editor = tk.Toplevel()
+    editor.title("Edit Courses")
+    editor.geometry("500x200")
 
-def say_hello():
-    messagebox.showinfo("Hello", "Hey there! This is your app.")
+    filepath = Path(__file__).parent / "courses.txt"
 
-def open_course_file():
-    filepath = filedialog.askopenfilename(filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")])
-    if filepath:
-        messagebox.showinfo("Course Opened", f"Opened file: {os.path.basename(filepath)}")
-        status_var.set(f"Loaded course: {os.path.basename(filepath)}")
+    # Load contents
+    try:
+        with filepath.open("r") as f:
+            content = f.read()
+    except FileNotFoundError:
+        content = ""
+
+    # Calculate height based on line count (minimum 10, maximum 30 for sanity)
+    line_count = content.count('\n') + 1
+    widget_height = min(max(line_count, 6), 10)
+
+    # Use a Frame to hold the Text widget and scrollbar
+    text_frame = tk.Frame(editor)
+    text_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+    scrollbar = tk.Scrollbar(text_frame)
+    scrollbar.pack(side="right", fill="y")
+
+    text_widget = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set, height=widget_height)
+    text_widget.insert("1.0", content)
+    text_widget.pack(side="left", fill="both", expand=True)
+
+    scrollbar.config(command=text_widget.yview)
+
+    # Frame for the Save button aligned right
+    button_frame = tk.Frame(editor)
+    button_frame.pack(fill="x", padx=10, pady=5)
+
+    save_button = tk.Button(button_frame, text="Save", command=lambda: save_changes(text_widget, filepath))
+    save_button.pack(side="right")
+
+def save_changes(text_widget, filepath):
+    new_content = text_widget.get("1.0", tk.END).strip()
+    with filepath.open("w") as f:
+        f.write(new_content)
+    status_var.set("courses.txt updated.")
 
 def check_dependencies():
     try:
@@ -137,6 +175,36 @@ def open_pref():
     #print(starttime_var)
     #print(endtime_var)
 
+def run_schedule():
+    script_dir = Path(__file__).parent
+    script_path = script_dir / "ClassHelper.py"
+    
+    # Clear previous output
+    log_text.delete("1.0", tk.END)
+    status_var.set("Running Classhelper.py...")
+
+    def stream_output():
+        process = subprocess.Popen(
+            [sys.executable, script_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            creationflags=subprocess.CREATE_NO_WINDOW  # Windows only
+        )
+
+        for line in process.stdout:
+            if not line.startswith("Press"):
+                log_text.insert(tk.END, line)
+                log_text.see(tk.END)  # Auto-scroll
+            if line.startswith("Wrote"):
+                status_var.set("Script finished.")
+                break
+        process.stdout.close()
+        #process.wait()
+        
+
+    threading.Thread(target=stream_output, daemon=True).start()
+
 # === Main App Setup ===
 
 app = tk.Tk()
@@ -159,10 +227,23 @@ status_var.set("Ready")
 toolbar = tk.Frame(app)
 toolbar.pack(side=tk.TOP, fill=tk.X)
 
-tk.Button(toolbar, text="Say Hello", command=say_hello).pack(side=tk.LEFT, padx=4, pady=4)
-tk.Button(toolbar, text="Open Course", command=open_course_file).pack(side=tk.LEFT, padx=4, pady=4)
 tk.Button(toolbar, text="Check Dependencies", command=check_dependencies).pack(side=tk.LEFT, padx=4, pady=4)
+tk.Button(toolbar, text="Courses", command=open_courses_editor).pack(side=tk.LEFT, padx=4, pady=4)
 tk.Button(toolbar, text="Preferences", command=open_pref).pack(side=tk.LEFT, padx=4, pady=4)
+tk.Button(toolbar, text="Run Schedules!", command=run_schedule).pack(side=tk.RIGHT, padx=4, pady=4)
+
+# === Log Viewer ===
+
+log_frame = tk.LabelFrame(app, text="Log Output")
+log_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+log_scroll = tk.Scrollbar(log_frame)
+log_scroll.pack(side="right", fill="y")
+
+log_text = tk.Text(log_frame, height=12, wrap="word", yscrollcommand=log_scroll.set)
+log_text.pack(fill="both", expand=True)
+log_scroll.config(command=log_text.yview)
+
 
 # === Status Bar ===
 

@@ -8,6 +8,9 @@ import msvcrt
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from multiprocessing import Pool
+import sys
+sys.stdout.reconfigure(line_buffering=True)
+
 
 def filestatus(filename):
     if not filename.exists(): return False
@@ -20,16 +23,29 @@ def filestatus(filename):
 
 def process_course(course):
     subject, coursenum = course
-    print("Searching for", subject, coursenum, "classes next semester.")
+    print("Searching for", subject, coursenum, "classes next semester.",flush = True)
     driver = webdriver.Chrome()
     driver.get("https://www.apps.miamioh.edu/courselist/")
     try:
         WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "termFilter")))
         driver.find_element(By.XPATH, "//label[contains(text(), 'Face-to-Face')]/preceding-sibling::input").click()
+        # Open the term filter dropdown
         term_dropdown = driver.find_element(By.ID, "termFilter")
         term_dropdown.click()
+
+        # Move to the top of the dropdown and check the current term
         term_dropdown.send_keys(Keys.HOME)
         term_dropdown.send_keys(Keys.ENTER)
+        elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Winter Term') or contains(text(), 'Summer Term')]")
+        if elements != []:
+            term_dropdown = driver.find_element(By.ID, "termFilter")
+            term_dropdown.click()
+
+            # Move to the top of the dropdown and check the current term
+            term_dropdown.send_keys(Keys.HOME)
+            term_dropdown.send_keys(Keys.DOWN)
+            term_dropdown.send_keys(Keys.ENTER)
+        
         dropdown_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".ms-choice")))
         dropdown_button.click()
         option = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, f"//label[contains(., 'Oxford')]")))
@@ -56,7 +72,7 @@ def process_course(course):
         crns = [match.group() for cell in cells if (match := CRN.search(cell.text.strip()))]
         return ((subject, coursenum), list(zip(crns, schedules)))
     except Exception as e:
-        print(f"Error processing {subject} {coursenum}: {e}")
+        print(f"Error processing {subject} {coursenum}: {e}",flush = True)
         return ((subject, coursenum), [])
     finally: driver.quit()
 
@@ -65,58 +81,72 @@ def get_course_info2(content, timedict):
     for key, value in results: timedict[key] = value
 
 def get_course_info3(content,timedict):
-    driver = webdriver.Chrome()  # Ensure chromedriver is installed
-    driver.get("https://www.apps.miamioh.edu/courselist/")
-    for course in content:
-        subject = course[0]
-        coursenum = course[1]
-        print("Searching for", subject, coursenum, "classes next semester.")
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "termFilter")))
-        #face to face
-        driver.find_element(By.XPATH, "//label[contains(text(), 'Face-to-Face')]/preceding-sibling::input").click()
-        #term
-        term_dropdown = driver.find_element(By.ID, "termFilter")  # Replace with actual ID
-        term_dropdown.click()
-        term_dropdown.send_keys(Keys.HOME)
-        term_dropdown.send_keys(Keys.ENTER)
-        #campus
-        dropdown_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".ms-choice")))
-        dropdown_button.click()
-        option = WebDriverWait(driver, 3).until(EC.element_to_be_clickable((By.XPATH, f"//label[contains(., 'Oxford')]")))
-        option.click()
-        dropdown_button.click()
-        #subject
-        dropdown_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".placeholder")))
-        dropdown_button.click()
-        search_input = WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ms-search input")))
-        WebDriverWait(driver, 3).until(EC.visibility_of(search_input))
-        search_input.send_keys(subject+" - ")
-        driver.switch_to.active_element.send_keys(Keys.TAB)
-        driver.switch_to.active_element.send_keys(Keys.SPACE)
-        #coursenum
-        driver.find_element(By.XPATH, "//label[contains(text(), 'Course Number')]/following::input[1]").send_keys(coursenum)
-        driver.switch_to.active_element.send_keys(Keys.ENTER)
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "resultsTable_wrapper")))
-        elements = driver.find_elements(By.XPATH, "//td")
-        TIME = re.compile(r"\b[MTWRFSU]{1,3}\s+\d{1,2}:\d{2}(?:am|pm)-\d{1,2}:\d{2}(?:am|pm)\b", re.IGNORECASE)
-        CRN = re.compile(r"\b\d{5}\b")
-        cells = driver.find_elements(By.CSS_SELECTOR, "td")
-        schedules = []
-        for cell in cells:
-            a = []
-            matches = TIME.findall(cell.text)
-            for match in matches: a.append(match)
-            if a != []: schedules.append(a)
-        crns = [
-            match.group()
-            for cell in driver.find_elements(By.CSS_SELECTOR, "td")
-            if (match := CRN.search(cell.text.strip()))
-        ]
-        timedict[(subject, coursenum)] = list(zip(crns, schedules))
-        reset = driver.find_element(By.ID, "resetSearch")
-        reset.click()
-        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "termFilter")))
-    driver.quit()
+    driver = None
+    try:
+        driver = webdriver.Chrome()  # Ensure chromedriver is installed
+        driver.get("https://www.apps.miamioh.edu/courselist/")
+        for course in content:
+            subject = course[0]
+            coursenum = course[1]
+            print("Searching for", subject, coursenum, "classes next semester.",flush = True)
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "termFilter")))
+            #face to face
+            driver.find_element(By.XPATH, "//label[contains(text(), 'Face-to-Face')]/preceding-sibling::input").click()
+            #term
+            term_dropdown = driver.find_element(By.ID, "termFilter")  # Replace with actual ID
+            term_dropdown.click()
+            # Move to the top of the dropdown and check the current term
+            term_dropdown.send_keys(Keys.HOME)
+            term_dropdown.send_keys(Keys.ENTER)
+            elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'Winter Term') or contains(text(), 'Summer Term')]")
+            if elements != []:
+                term_dropdown = driver.find_element(By.ID, "termFilter")
+                term_dropdown.click()
+
+                # Move to the top of the dropdown and check the current term
+                term_dropdown.send_keys(Keys.HOME)
+                term_dropdown.send_keys(Keys.DOWN)
+                term_dropdown.send_keys(Keys.ENTER)
+            #campus
+            dropdown_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".ms-choice")))
+            dropdown_button.click()
+            option = WebDriverWait(driver, 3).until(EC.element_to_be_clickable((By.XPATH, f"//label[contains(., 'Oxford')]")))
+            option.click()
+            dropdown_button.click()
+            #subject
+            dropdown_button = WebDriverWait(driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".placeholder")))
+            dropdown_button.click()
+            search_input = WebDriverWait(driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ms-search input")))
+            WebDriverWait(driver, 3).until(EC.visibility_of(search_input))
+            search_input.send_keys(subject+" - ")
+            driver.switch_to.active_element.send_keys(Keys.TAB)
+            driver.switch_to.active_element.send_keys(Keys.SPACE)
+            #coursenum
+            driver.find_element(By.XPATH, "//label[contains(text(), 'Course Number')]/following::input[1]").send_keys(coursenum)
+            driver.switch_to.active_element.send_keys(Keys.ENTER)
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "resultsTable_wrapper")))
+            elements = driver.find_elements(By.XPATH, "//td")
+            TIME = re.compile(r"\b[MTWRFSU]{1,3}\s+\d{1,2}:\d{2}(?:am|pm)-\d{1,2}:\d{2}(?:am|pm)\b", re.IGNORECASE)
+            CRN = re.compile(r"\b\d{5}\b")
+            cells = driver.find_elements(By.CSS_SELECTOR, "td")
+            schedules = []
+            for cell in cells:
+                a = []
+                matches = TIME.findall(cell.text)
+                for match in matches: a.append(match)
+                if a != []: schedules.append(a)
+            crns = [
+                match.group()
+                for cell in driver.find_elements(By.CSS_SELECTOR, "td")
+                if (match := CRN.search(cell.text.strip()))
+            ]
+            timedict[(subject, coursenum)] = list(zip(crns, schedules))
+            reset = driver.find_element(By.ID, "resetSearch")
+            reset.click()
+            WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "termFilter")))
+    finally:
+        if driver:
+            driver.quit()
 
 def time_conflicts(schedule):
     #print(schedule)
@@ -175,25 +205,25 @@ def main1():
             # CHANGE THIS LINE WHENEVER ADDING NEW PREFERENCES
             if line and not line.startswith("#") and not line.startswith("Preferred") and not line.startswith("Multithreading"): optimize = line.split()[-1]
     if optimize.upper() == "FALSE":
-        print(f"Found {len(schedules)} valid schedule(s).")
+        print(f"Found {len(schedules)} valid schedule(s).",flush = True)
         for i, s in enumerate(schedules, 1):
             with res.open('a') as file: file.write(f"Schedule {i}:"+"\n")
             for (crn, time), course in zip(s, timedict.keys()):
                 line = f"  {course}: CRN {crn} | {time}"
                 with res.open('a') as file: file.write(line+"\n")
-        print("Wrote to res.txt!")
+        print("Wrote to res.txt!",flush = True)
     else:
-        print("Optimizing based on free time!")
+        print("Optimizing based on free time!",flush = True)
         timelist = []
         for schedule in schedules: freetime(schedule,timelist)
         schedules = sorted(timelist, key=lambda x: x[0])
-        print(f"Found {len(schedules)} valid schedule(s).")
+        print(f"Found {len(schedules)} valid schedule(s).",flush = True)
         for i, s in enumerate(schedules, 1):
             with res.open('a') as file: file.write(f"Schedule {i}:\nWeekly Free Time: {s[0]} minutes ({s[0]//60} hours {s[0]%60} mins)\n")
             for (crn, time), course in zip(s[1], timedict.keys()):
                 line = f"  {course}: CRN {crn} | {time}"
                 with res.open('a') as file: file.write(line+"\n")
-        print("Wrote to res.txt!")
+        print("Wrote to res.txt!",flush = True)
     while True:
             print("Press any key to continue...")
             msvcrt.getch()
@@ -250,6 +280,24 @@ def choice1(timedict_ref=None):
     if multi.upper() == "FALSE": get_course_info3(content, timedict)
     else: get_course_info2(content, timedict)
 
+def main():
+    script_dir = Path(__file__).parent
+    courses = script_dir / "courses.txt"
+    pref = script_dir / "preferences.txt"
+    if filestatus(courses): main1()
+    else:
+        # CHANGE THIS LINE WHENEVER ADDING NEW PREFERENCES
+        pref.write_text("# Use this carefully, as if the times are too limited, "
+                        +"it wont show anything.\n# Input times with this format:"
+                        +" 10:00am or 4:30pm\nPreferred Start Time (when do "
+                        +"you want your first class to be): \nPreferred End Time"
+                        +" (what time do you want your classes to end): \nOptimize"
+                        +" based on Weekly Free Time? (True or False): False\n"
+                        +"Multithreading? (Opens multiple driver instances (faster"
+                        +" but resource heavy)): False")
+        courses.write_text("# Write your classes below (Ex: CSE 174, ENG 111, etc.):")
+        print("Theres nothing in your input files! Input some classes and preferences (optional).",flush = True)
+
 if __name__ == "__main__":
     script_dir = Path(__file__).parent
     courses = script_dir / "courses.txt"
@@ -266,10 +314,8 @@ if __name__ == "__main__":
                         +"Multithreading? (Opens multiple driver instances (faster"
                         +" but resource heavy)): False")
         courses.write_text("# Write your classes below (Ex: CSE 174, ENG 111, etc.):")
-        print("Theres nothing in your input files! Input some classes and preferences (optional).")
+        print("Theres nothing in your input files! Input some classes and preferences (optional).",flush = True)
         while True:
             print("Press any key to continue...")
             msvcrt.getch()
             break
-        
-        
