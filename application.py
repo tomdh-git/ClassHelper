@@ -127,44 +127,58 @@ def drawsched(s,c):
     "gold1"
 ]
     color = 0
+    #print(s)
     pattern = re.compile(r"^\('([A-Z]{3})', '(\d{3}[A-Z]?)'\): CRN (\d{5}) \| (\[.*?\])$")
     a = []
     for item in s.split("\n"):
         if item.startswith("("):
             a.append(item)
+    def to_minutes(t):
+        h, m = map(int, t[:-2].split(':'))
+        period = t[-2:]
+        h = h % 12 + (12 if period == 'pm' else 0)
+        return h + (m / 60)
     for i in a:
         match = pattern.match(i)
         if match:
             dept, course, crn, times = match.groups()
-            times_list = eval(times)  # Converts string list to actual list
+            times_list = eval(times)  # ['MWF 1:15pm-2:10pm', ...]
+
             for t in times_list:
-                # Split the meeting into days and time
                 days_match = re.match(r"^([A-Z]+) (.+)$", t)
                 if days_match:
-                    days, time = days_match.groups()
-        for j in days:
-            def to_minutes(t):
-                h, m = map(int, t[:-2].split(':'))
-                period = t[-2:]
-                h = h % 12 + (12 if period == 'pm' else 0)
-                return h + (m/50)
-            b=[]
-            for k in time.split("-"):
-                b.append(to_minutes(k))
-            match j:
-                case "M":
-                    day = 0
-                case "T":
-                    day = 1
-                case "W":
-                    day = 2
-                case "R":
-                    day = 3
-                case "F":
-                    day = 4
-            draw_class(day,b[0],b[1],(dept,course),colors[color])
+                    days, time_range = days_match.groups()
+                    start_str, end_str = time_range.split("-")
+                    
+                    def to_minutes(t):
+                        h, m = map(int, t[:-2].split(":"))
+                        period = t[-2:]
+                        h = h % 12 + (12 if period == 'pm' else 0)
+                        return h + (m / 60)
 
-            #draw_class(day_idx=1, start_hour=9, end_hour=11, title="Math 101")
+                    start = to_minutes(start_str)
+                    end = to_minutes(end_str)
+
+                    for j in days:
+                        match j:
+                            case "M":
+                                day = 0
+                            case "T":
+                                day = 1
+                            case "W":
+                                day = 2
+                            case "R":
+                                day = 3
+                            case "F":
+                                day = 4
+                            case _:
+                                continue  # skip invalid
+
+                        #print(day, start, end, (dept, course), colors[color])
+                        draw_class(day, start, end, (dept, course), colors[color])
+
+
+                #draw_class(day_idx=1, start_hour=9, end_hour=11, title="Math 101")
         if color<len(colors)-1:
             color+=1
         else:
