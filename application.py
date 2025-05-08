@@ -4,6 +4,10 @@ import subprocess
 import sys
 import threading
 import re
+import ttkbootstrap as ttk
+import ttkthemes
+from ttkthemes import ThemedTk
+from ttkbootstrap.constants import *
 
 # === Globals ===
 optimize_var = None
@@ -13,6 +17,23 @@ endtime_var = None
 status_var = None
 
 # === Utility Functions ===
+
+def draw_rounded_rect(canvas, x1, y1, x2, y2, r=10, fill="", outline="black",**kwargs):
+    # Arcs
+    canvas.create_arc(x1, y1, x1+2*r, y1+2*r, start=90, extent=90, style="pieslice", fill=fill, outline=outline,**kwargs)  # Top-left
+    canvas.create_arc(x2-2*r, y1, x2, y1+2*r, start=0, extent=90, style="pieslice", fill=fill, outline=outline,**kwargs)  # Top-right
+    canvas.create_arc(x2-2*r, y2-2*r, x2, y2, start=270, extent=90, style="pieslice", fill=fill, outline=outline,**kwargs)  # Bottom-right
+    canvas.create_arc(x1, y2-2*r, x1+2*r, y2, start=180, extent=90, style="pieslice", fill=fill, outline=outline,**kwargs)  # Bottom-left
+
+    # Fill Rectangles (optional for visual effect)
+    canvas.create_rectangle(x1+r, y1, x2-r, y2, fill=fill, outline=fill,**kwargs)
+    canvas.create_rectangle(x1, y1+r, x2, y2-r, fill=fill, outline=fill,**kwargs)
+
+    # Lines between arcs (the outline)
+    canvas.create_line(x1+r, y1, x2-r, y1, fill=outline,**kwargs)  # Top
+    canvas.create_line(x2, y1+r, x2, y2-r, fill=outline,**kwargs)  # Right
+    canvas.create_line(x2-r, y2, x1+r, y2, fill=outline,**kwargs)  # Bottom
+    canvas.create_line(x1, y2-r, x1, y1+r, fill=outline,**kwargs)  # Left
 
 def clear_canvas(canvas):
     canvas.delete("class_rect","class_text")
@@ -69,9 +90,10 @@ def set_placeholder(entry, placeholder):
 
 def draw_class(day_idx, start_hour, end_hour, title,color):
     x1 = left_margin + day_idx * cell_width
-    y1 = top_margin + (start_hour) * cell_height
-    y2 = top_margin + (end_hour) * cell_height
-    canvas.create_rectangle(x1+5, y1, (x1 + cell_width)-5, y2, fill=color, outline="black", tags="class_rect")
+    y1 = top_margin + (start_hour-6) * cell_height
+    y2 = top_margin + (end_hour-6) * cell_height
+    draw_rounded_rect(canvas,x1+5, y1, (x1 + cell_width)-5, y2, fill=color,outline="black",r=5,tags="class_rect")
+    #canvas.create_rectangle(x1+5, y1, (x1 + cell_width)-5, y2, fill=color, outline="black", tags="class_rect")
     canvas.create_text(x1 + cell_width/2, (y1 + y2)/2, text=title, font=("Arial", 8), width=cell_width-10,tags="class_text")
 
 def drawsched(s,c):
@@ -263,11 +285,13 @@ def save_changes(text_widget, filepath):
 def check_dependencies():
     try:
         import selenium
+        import ttkbootstrap
+        import ttkthemes
         #messagebox.showinfo("Check", "Selenium is installed!")
-        status_var.set("Selenium is available.")
+        status_var.set("Selenium and ttkbootstrap and ttkthemes is available.")
     except ImportError:
         #messagebox.showwarning("Check", "Selenium is NOT installed!")
-        status_var.set("Selenium missing!")
+        status_var.set("Selenium or ttkbootstrap or ttkthemes missing!")
 
 def save_preferences():
     #user_input = entry.get()
@@ -357,7 +381,7 @@ def run_schedule():
 
     threading.Thread(target=stream_output, daemon=True).start()
 
-app = tk.Tk()
+app = ThemedTk(theme="adapta")
 app.title("ClassHelper")
 app.geometry("900x600")
 
@@ -376,15 +400,15 @@ status_var.set("Ready")
 app.grid_rowconfigure(1, weight=1,minsize=400)  # Top left frame
 app.grid_rowconfigure(2, weight=1)  # Bottom left (log)
 app.grid_columnconfigure(0, weight=1)  # Left column
-app.grid_columnconfigure(1, weight=1,minsize=500)  # Right column
+app.grid_columnconfigure(1, weight=1,minsize=550)  # Right column
 
 # === Toolbar ===
 toolbar = tk.Frame(app)
 toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
-tk.Button(toolbar, text="Check Dependencies", command=check_dependencies).pack(side=tk.LEFT, padx=4, pady=4)
-tk.Button(toolbar, text="Courses", command=open_courses_editor).pack(side=tk.LEFT, padx=4, pady=4)
-tk.Button(toolbar, text="Preferences", command=open_pref).pack(side=tk.LEFT, padx=4, pady=4)
-tk.Button(toolbar, text="Run Schedules!", command=run_schedule).pack(side=tk.RIGHT, padx=4, pady=4)
+ttk.Button(toolbar, text="Check Dependencies", command=check_dependencies, bootstyle="success-outline").pack(side=tk.LEFT, padx=4, pady=4)
+ttk.Button(toolbar, text="Courses", command=open_courses_editor, bootstyle="success-outline").pack(side=tk.LEFT, padx=4, pady=4)
+ttk.Button(toolbar, text="Preferences", command=open_pref, bootstyle="success-outline").pack(side=tk.LEFT, padx=4, pady=4)
+ttk.Button(toolbar, text="Run Schedules!", command=run_schedule, bootstyle="success-outline").pack(side=tk.RIGHT, padx=4, pady=4)
 #tk.Button(toolbar, text="Results", command=open_res).pack(side=tk.RIGHT, padx=4, pady=4)
 
 # === Global Vars ===
@@ -393,7 +417,7 @@ items_per_page = 1
 current_page = [0]
 
 # === Top Left Frame ===
-top_left = tk.LabelFrame(app, text="Schedules")
+top_left = ttk.LabelFrame(app, text="Schedules")
 top_left.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
 
 app.grid_rowconfigure(1, weight=1)
@@ -402,9 +426,9 @@ top_left.grid_rowconfigure(0, weight=1)
 top_left.grid_columnconfigure(0, weight=1)
 
 # === Canvas + Scrollable Frame ===
-canvas = tk.Canvas(top_left)
-scrollbar = tk.Scrollbar(top_left, orient="vertical", command=canvas.yview)
-scrollable_frame = tk.Frame(canvas)
+canvas = ttk.Canvas(top_left)
+scrollbar = ttk.Scrollbar(top_left, orient="vertical", command=canvas.yview)
+scrollable_frame = ttk.Frame(canvas)
 
 scrollable_frame.bind(
     "<Configure>",
@@ -450,7 +474,7 @@ def update_schedule_display():
 
     for sched in shown_schedules:
         lines = sched.split("\n")
-        tk.Label(scrollable_frame, text=lines[0], font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
+        ttk.Label(scrollable_frame, text=lines[0], font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
         for line in lines[1:]:
             if line.startswith("("):
                 try:
@@ -459,14 +483,14 @@ def update_schedule_display():
                     crn, times = parts[1].split(" | ")
                     times = eval(times.strip())
 
-                    tk.Label(scrollable_frame, text=f"{course} (CRN {crn})", font=("Arial", 8)).pack(anchor="w", padx=10)
+                    ttk.Label(scrollable_frame, text=f"{course} (CRN {crn})", font=("Arial", 8)).pack(anchor="w", padx=10)
                     for t in times:
-                        tk.Label(scrollable_frame, text=f"  {t}", font=("Arial", 8)).pack(anchor="w", padx=10)
+                        ttk.Label(scrollable_frame, text=f"  {t}", font=("Arial", 8)).pack(anchor="w", padx=10)
                 except Exception as e:
-                    tk.Label(scrollable_frame, text=f"[Format Error] {line}", fg="red").pack(anchor="w", padx=10)
+                    ttk.Label(scrollable_frame, text=f"[Format Error] {line}", fg="red").pack(anchor="w", padx=10)
             else:
-                tk.Label(scrollable_frame, text=line, anchor="w", justify="left").pack(anchor="w", padx=10)
-        tk.Button(scrollable_frame, text="Visualize", command=lambda s=sched: drawsched(s,canvas)).pack(anchor="e", padx=10, pady=5)
+                ttk.Label(scrollable_frame, text=line, anchor="w", justify="left").pack(anchor="w", padx=10)
+        ttk.Button(scrollable_frame, text="Visualize", command=lambda s=sched: drawsched(s,canvas), bootstyle="success-outline").pack(anchor="e", padx=10, pady=5)
 
     prev_button["state"] = tk.NORMAL if current_page[0] > 0 else tk.DISABLED
     next_button["state"] = tk.NORMAL if end < len(schedules) else tk.DISABLED
@@ -482,10 +506,10 @@ def prev_page():
         current_page[0] -= 1
         update_schedule_display()
 
-prev_button = tk.Button(top_left, text="Previous", command=prev_page)
+prev_button = ttk.Button(top_left, text="Previous", command=prev_page, bootstyle="success-outline")
 prev_button.grid(row=1, column=0, sticky="w", padx=5, pady=5)
 
-next_button = tk.Button(top_left, text="Next", command=next_page)
+next_button = ttk.Button(top_left, text="Next", command=next_page, bootstyle="success-outline")
 next_button.grid(row=1, column=1, sticky="e", padx=5, pady=5)
 
 # === Initial Load and Display ===
@@ -493,31 +517,31 @@ load_schedules()
 update_schedule_display()
 
 # === Log Output Frame (Bottom Left) ===
-log_frame = tk.LabelFrame(app, text="Log Output")
+log_frame = ttk.LabelFrame(app, text="Log Output")
 log_frame.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
 
 log_frame.grid_rowconfigure(0, weight=1)
 log_frame.grid_columnconfigure(0, weight=1)
 
-log_text = tk.Text(log_frame, wrap="word")
+log_text = ttk.Text(log_frame, wrap="word")
 log_text.grid(row=0, column=0, sticky="nsew")
 
-log_scroll = tk.Scrollbar(log_frame, command=log_text.yview)
+log_scroll = ttk.Scrollbar(log_frame, command=log_text.yview)
 log_scroll.grid(row=0, column=1, sticky="ns")
 log_text.config(yscrollcommand=log_scroll.set)
 
 # === Right Frame (for other stuff) ===
-right_frame = tk.Frame(app, bg="white")
+right_frame = ttk.Frame(app)
 right_frame.grid(row=1, column=1, rowspan=2, sticky="nsew", padx=5, pady=5)
 
-canvas = tk.Canvas(right_frame, bg="white")
+canvas = ttk.Canvas(right_frame, bg="white")
 canvas.pack(fill="both", expand=True,padx=5,pady=30)
 
 days = ["M", "T", "W", "R", "F"]
-hours = list(range(0, 24))
+hours = list(range(6, 22))
 
-cell_width = 83
-cell_height = 20
+cell_width = 95
+cell_height = 29
 left_margin = 40
 top_margin = 25
 
@@ -529,11 +553,16 @@ for i, day in enumerate(days):
 # Draw row headers (hours)
 for j, hour in enumerate(hours):
     y = top_margin + j * cell_height - (cell_height/2)
-    canvas.create_text(left_margin/2, y + cell_height/2, text=f"{hour}:00", font=("Arial", 8))
+    if hour<12:
+        a = "am"
+    else:
+        a = "pm"
+    b = hour%12 if hour != 12 else 12
+    canvas.create_text(left_margin/2, y + cell_height/2, text=f"{b}{a}", font=("Arial", 8))
 
 # Draw grid
 for i in range(len(days)):
-    for j in range(len(hours)):
+    for j in range(len(hours)-1):
         x1 = left_margin + i * cell_width
         y1 = top_margin + j * cell_height
         x2 = x1 + cell_width
@@ -542,8 +571,8 @@ for i in range(len(days)):
 
 #draw_class(day_idx=1, start_hour=9, end_hour=11, title="Math 101")
 
-status_var = tk.StringVar(value="Ready")
-status_bar = tk.Label(app, textvariable=status_var, bd=1, relief=tk.SUNKEN, anchor='w')
+status_var = ttk.StringVar(value="Ready")
+status_bar = ttk.Label(app, textvariable=status_var, relief=tk.SUNKEN, anchor='w')
 status_bar.grid(row=4, column=0, columnspan=2, sticky="ew")
 
 app.mainloop()
