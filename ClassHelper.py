@@ -211,7 +211,7 @@ def main1():
             for (crn, time), course in zip(s, timedict.keys()):
                 line = f"  {course}: CRN {crn} | {time}"
                 with res.open('a') as file: file.write(line+"\n")
-        print("Wrote to res.txt!",flush = True)
+        print("Wrote to result.txt!",flush = True)
     else:
         print("Optimizing based on free time!",flush = True)
         timelist = []
@@ -219,11 +219,11 @@ def main1():
         schedules = sorted(timelist, key=lambda x: x[0])
         print(f"Found {len(schedules)} valid schedule(s).",flush = True)
         for i, s in enumerate(schedules, 1):
-            with res.open('a') as file: file.write(f"Schedule {i}:\nWeekly Free Time: {s[0]} minutes ({s[0]//60} hours {s[0]%60} mins)\n")
+            with res.open('a') as file: file.write(f"Schedule {i}:\nWeekly Free Time: {s[0]//60} hours {s[0]%60} mins\n")
             for (crn, time), course in zip(s[1], timedict.keys()):
                 line = f"  {course}: CRN {crn} | {time}"
                 with res.open('a') as file: file.write(line+"\n")
-        print("Wrote to res.txt!",flush = True)
+        print("Wrote to result.txt!",flush = True)
     while True:
             print("Press any key to continue...")
             msvcrt.getch()

@@ -1,10 +1,9 @@
 import tkinter as tk
 from pathlib import Path
-import ClassHelper
 import subprocess
 import sys
-import os
 import threading
+import re
 
 # === Globals ===
 optimize_var = None
@@ -14,6 +13,9 @@ endtime_var = None
 status_var = None
 
 # === Utility Functions ===
+
+def clear_canvas(canvas):
+    canvas.delete("class_rect","class_text")
 
 def prefcheckbool(linestart):
     script_dir = Path(__file__).parent
@@ -27,6 +29,7 @@ def prefcheckbool(linestart):
                     value = line.split()[-1]
                     break
     return tk.BooleanVar(value=value.upper() == "TRUE")
+
 def prefcheckstr(linestart):
     script_dir = Path(__file__).parent
     pref = script_dir / "preferences.txt"
@@ -64,8 +67,141 @@ def set_placeholder(entry, placeholder):
     entry.bind("<FocusIn>", on_focus_in)
     entry.bind("<FocusOut>", on_focus_out)
 
+def draw_class(day_idx, start_hour, end_hour, title,color):
+    x1 = left_margin + day_idx * cell_width
+    y1 = top_margin + (start_hour) * cell_height
+    y2 = top_margin + (end_hour) * cell_height
+    canvas.create_rectangle(x1+5, y1, (x1 + cell_width)-5, y2, fill=color, outline="black", tags="class_rect")
+    canvas.create_text(x1 + cell_width/2, (y1 + y2)/2, text=title, font=("Arial", 8), width=cell_width-10,tags="class_text")
+
+def drawsched(s,c):
+    clear_canvas(c)
+    colors = [
+    "light blue",
+    "lavender",
+    "peach puff",
+    "mint cream",
+    "honeydew",
+    "lemon chiffon",
+    "powder blue",
+    "light yellow",
+    "light goldenrod",
+    "ivory",
+    "azure",
+    "misty rose",
+    "light cyan",
+    "blanched almond",
+    "pale green",
+    "light pink",
+    "cornsilk",
+    "seashell",
+    "old lace",
+    "floral white",
+    "alice blue",
+    "beige",
+    "linen",
+    "antique white",
+    "papaya whip",
+    "navajo white",
+    "moccasin",
+    "light salmon",
+    "thistle",
+    "wheat",
+    "gainsboro",
+    "light steel blue",
+    "sky blue",
+    "aquamarine",
+    "light green",
+    "pale turquoise",
+    "khaki",
+    "burlywood1",
+    "bisque",
+    "rosy brown1",
+    "turquoise1",
+    "pale goldenrod",
+    "light sky blue",
+    "medium aquamarine",
+    "plum1",
+    "salmon1",
+    "orchid1",
+    "gold1"
+]
+    color = 0
+    pattern = re.compile(r"^\('([A-Z]{3})', '(\d{3}[A-Z]?)'\): CRN (\d{5}) \| (\[.*?\])$")
+    a = []
+    for item in s.split("\n"):
+        if item.startswith("("):
+            a.append(item)
+    for i in a:
+        match = pattern.match(i)
+        if match:
+            dept, course, crn, times = match.groups()
+            times_list = eval(times)  # Converts string list to actual list
+            for t in times_list:
+                # Split the meeting into days and time
+                days_match = re.match(r"^([A-Z]+) (.+)$", t)
+                if days_match:
+                    days, time = days_match.groups()
+        for j in days:
+            def to_minutes(t):
+                h, m = map(int, t[:-2].split(':'))
+                period = t[-2:]
+                h = h % 12 + (12 if period == 'pm' else 0)
+                return h + (m/50)
+            b=[]
+            for k in time.split("-"):
+                b.append(to_minutes(k))
+            match j:
+                case "M":
+                    day = 0
+                case "T":
+                    day = 1
+                case "W":
+                    day = 2
+                case "R":
+                    day = 3
+                case "F":
+                    day = 4
+            draw_class(day,b[0],b[1],(dept,course),colors[color])
+
+            #draw_class(day_idx=1, start_hour=9, end_hour=11, title="Math 101")
+        if color<len(colors)-1:
+            color+=1
+        else:
+            color = 0
+
 # === Functional Callbacks ===
-        
+def open_res():
+    res = tk.Toplevel()
+    res.title("Result")
+    res.geometry("600x600")
+
+    filepath = Path(__file__).parent / "result.txt"
+
+    # Load contents
+    try:
+        with filepath.open("r") as f:
+            content = f.read()
+    except FileNotFoundError:
+        content = ""
+
+    # Calculate height based on line count (minimum 10, maximum 30 for sanity)
+    line_count = content.count('\n') + 1
+    widget_height = min(max(line_count, 6), 10)
+
+    # Use a Frame to hold the Text widget and scrollbar
+    text_frame = tk.Frame(res)
+    text_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+    scrollbar = tk.Scrollbar(text_frame)
+    scrollbar.pack(side="right", fill="y")
+
+    text_widget = tk.Text(text_frame, wrap=tk.WORD, yscrollcommand=scrollbar.set, height=widget_height)
+    text_widget.insert("1.0", content)
+    text_widget.pack(side="left", fill="both", expand=True)
+
+    scrollbar.config(command=text_widget.yview)
+
 def open_courses_editor():
     editor = tk.Toplevel()
     editor.title("Edit Courses")
@@ -198,6 +334,8 @@ def run_schedule():
                 log_text.see(tk.END)  # Auto-scroll
             if line.startswith("Wrote"):
                 status_var.set("Script finished.")
+                load_schedules()
+                update_schedule_display()
                 break
         process.stdout.close()
         #process.wait()
@@ -205,11 +343,9 @@ def run_schedule():
 
     threading.Thread(target=stream_output, daemon=True).start()
 
-# === Main App Setup ===
-
 app = tk.Tk()
 app.title("ClassHelper")
-app.geometry("600x400")
+app.geometry("900x600")
 
 starttime_var = prefcheckstr("Preferred Start Time")
 endtime_var = prefcheckstr("Preferred End Time")
@@ -222,34 +358,178 @@ multithread_var = prefcheckbool("Multithreading")
 status_var = tk.StringVar()
 status_var.set("Ready")
 
-# === Toolbar === at the top
+# Configure grid layout
+app.grid_rowconfigure(1, weight=1,minsize=400)  # Top left frame
+app.grid_rowconfigure(2, weight=1)  # Bottom left (log)
+app.grid_columnconfigure(0, weight=1)  # Left column
+app.grid_columnconfigure(1, weight=1,minsize=500)  # Right column
 
+# === Toolbar ===
 toolbar = tk.Frame(app)
-toolbar.pack(side=tk.TOP, fill=tk.X)
-
+toolbar.grid(row=0, column=0, columnspan=2, sticky="ew")
 tk.Button(toolbar, text="Check Dependencies", command=check_dependencies).pack(side=tk.LEFT, padx=4, pady=4)
 tk.Button(toolbar, text="Courses", command=open_courses_editor).pack(side=tk.LEFT, padx=4, pady=4)
 tk.Button(toolbar, text="Preferences", command=open_pref).pack(side=tk.LEFT, padx=4, pady=4)
 tk.Button(toolbar, text="Run Schedules!", command=run_schedule).pack(side=tk.RIGHT, padx=4, pady=4)
+#tk.Button(toolbar, text="Results", command=open_res).pack(side=tk.RIGHT, padx=4, pady=4)
 
-# === Log Viewer ===
+# === Global Vars ===
+schedules = []
+items_per_page = 1
+current_page = [0]
 
+# === Top Left Frame ===
+top_left = tk.LabelFrame(app, text="Schedules")
+top_left.grid(row=1, column=0, sticky="nsew", padx=5, pady=5)
+
+app.grid_rowconfigure(1, weight=1)
+app.grid_columnconfigure(0, weight=1)
+top_left.grid_rowconfigure(0, weight=1)
+top_left.grid_columnconfigure(0, weight=1)
+
+# === Canvas + Scrollable Frame ===
+canvas = tk.Canvas(top_left)
+scrollbar = tk.Scrollbar(top_left, orient="vertical", command=canvas.yview)
+scrollable_frame = tk.Frame(canvas)
+
+scrollable_frame.bind(
+    "<Configure>",
+    lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+)
+
+canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+canvas.configure(yscrollcommand=scrollbar.set)
+
+canvas.grid(row=0, column=0, columnspan=2, sticky="nsew")
+scrollbar.grid(row=0, column=2, sticky="ns")
+
+# === Load schedules once ===
+def load_schedules():
+    global schedules
+    schedules = []
+
+    filepath = Path(__file__).parent / "result.txt"
+    if filepath.exists():
+        with filepath.open("r") as f:
+            lines = f.readlines()
+
+        current_schedule = []
+        for line in lines:
+            if line.startswith("Schedule"):
+                if current_schedule:
+                    schedules.append("\n".join(current_schedule))
+                    current_schedule = []
+            if not line.startswith("#"):
+                current_schedule.append(line.strip())
+
+        if current_schedule:
+            schedules.append("\n".join(current_schedule))
+
+# === Update Display ===
+def update_schedule_display():
+    for widget in scrollable_frame.winfo_children():
+        widget.destroy()
+
+    start = current_page[0] * items_per_page
+    end = start + items_per_page
+    shown_schedules = schedules[start:end]
+
+    for sched in shown_schedules:
+        lines = sched.split("\n")
+        tk.Label(scrollable_frame, text=lines[0], font=("Arial", 10, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
+        for line in lines[1:]:
+            if line.startswith("("):
+                try:
+                    parts = line.split(": CRN ")
+                    course = parts[0].strip(" ()").replace("', '", " ")
+                    crn, times = parts[1].split(" | ")
+                    times = eval(times.strip())
+
+                    tk.Label(scrollable_frame, text=f"{course} (CRN {crn})", font=("Arial", 8)).pack(anchor="w", padx=10)
+                    for t in times:
+                        tk.Label(scrollable_frame, text=f"  {t}", font=("Arial", 8)).pack(anchor="w", padx=10)
+                except Exception as e:
+                    tk.Label(scrollable_frame, text=f"[Format Error] {line}", fg="red").pack(anchor="w", padx=10)
+            else:
+                tk.Label(scrollable_frame, text=line, anchor="w", justify="left").pack(anchor="w", padx=10)
+        tk.Button(scrollable_frame, text="Visualize", command=lambda s=sched: drawsched(s,canvas)).pack(anchor="e", padx=10, pady=5)
+
+    prev_button["state"] = tk.NORMAL if current_page[0] > 0 else tk.DISABLED
+    next_button["state"] = tk.NORMAL if end < len(schedules) else tk.DISABLED
+
+# === Navigation Buttons ===
+def next_page():
+    if (current_page[0] + 1) * items_per_page < len(schedules):
+        current_page[0] += 1
+        update_schedule_display()
+
+def prev_page():
+    if current_page[0] > 0:
+        current_page[0] -= 1
+        update_schedule_display()
+
+prev_button = tk.Button(top_left, text="Previous", command=prev_page)
+prev_button.grid(row=1, column=0, sticky="w", padx=5, pady=5)
+
+next_button = tk.Button(top_left, text="Next", command=next_page)
+next_button.grid(row=1, column=1, sticky="e", padx=5, pady=5)
+
+# === Initial Load and Display ===
+load_schedules()
+update_schedule_display()
+
+# === Log Output Frame (Bottom Left) ===
 log_frame = tk.LabelFrame(app, text="Log Output")
-log_frame.pack(fill="both", expand=True, padx=10, pady=5)
+log_frame.grid(row=2, column=0, sticky="nsew", padx=5, pady=5)
 
-log_scroll = tk.Scrollbar(log_frame)
-log_scroll.pack(side="right", fill="y")
+log_frame.grid_rowconfigure(0, weight=1)
+log_frame.grid_columnconfigure(0, weight=1)
 
-log_text = tk.Text(log_frame, height=12, wrap="word", yscrollcommand=log_scroll.set)
-log_text.pack(fill="both", expand=True)
-log_scroll.config(command=log_text.yview)
+log_text = tk.Text(log_frame, wrap="word")
+log_text.grid(row=0, column=0, sticky="nsew")
 
+log_scroll = tk.Scrollbar(log_frame, command=log_text.yview)
+log_scroll.grid(row=0, column=1, sticky="ns")
+log_text.config(yscrollcommand=log_scroll.set)
 
-# === Status Bar ===
+# === Right Frame (for other stuff) ===
+right_frame = tk.Frame(app, bg="white")
+right_frame.grid(row=1, column=1, rowspan=2, sticky="nsew", padx=5, pady=5)
 
+canvas = tk.Canvas(right_frame, bg="white")
+canvas.pack(fill="both", expand=True,padx=5,pady=30)
+
+days = ["M", "T", "W", "R", "F"]
+hours = list(range(0, 24))
+
+cell_width = 83
+cell_height = 20
+left_margin = 40
+top_margin = 25
+
+# Draw column headers (days)
+for i, day in enumerate(days):
+    x = left_margin + i * cell_width
+    canvas.create_text(x + cell_width/2, top_margin/2, text=day, font=("Arial", 10, "bold"))
+
+# Draw row headers (hours)
+for j, hour in enumerate(hours):
+    y = top_margin + j * cell_height - (cell_height/2)
+    canvas.create_text(left_margin/2, y + cell_height/2, text=f"{hour}:00", font=("Arial", 8))
+
+# Draw grid
+for i in range(len(days)):
+    for j in range(len(hours)):
+        x1 = left_margin + i * cell_width
+        y1 = top_margin + j * cell_height
+        x2 = x1 + cell_width
+        y2 = y1 + cell_height
+        canvas.create_rectangle(x1, y1, x2, y2, outline="lightgray")
+
+#draw_class(day_idx=1, start_hour=9, end_hour=11, title="Math 101")
+
+status_var = tk.StringVar(value="Ready")
 status_bar = tk.Label(app, textvariable=status_var, bd=1, relief=tk.SUNKEN, anchor='w')
-status_bar.pack(side=tk.BOTTOM, fill=tk.X)
-
-# === Main Loop ===
+status_bar.grid(row=4, column=0, columnspan=2, sticky="ew")
 
 app.mainloop()
