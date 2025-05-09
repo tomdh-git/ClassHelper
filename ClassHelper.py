@@ -314,8 +314,3 @@ if __name__ == "__main__":
                         +"Multithreading? (Opens multiple driver instances (faster"
                         +" but resource heavy)): False")
         courses.write_text("# Write your classes below (Ex: CSE 174, ENG 111, etc.):")
-        print("Theres nothing in your input files! Input some classes and preferences (optional).",flush = True)
-        while True:
-            print("Press any key to continue...")
-            msvcrt.getch()
-            break
