@@ -5,11 +5,9 @@ import sys
 import threading
 import re
 import ttkbootstrap as ttk
+import ttkthemes
 from ttkthemes import ThemedTk
 from ttkbootstrap.constants import *
-import os
-import requests
-import sys
 
 # === Globals ===
 optimize_var = None
@@ -17,10 +15,6 @@ multithread_var = None
 starttime_var = None
 endtime_var = None
 status_var = None
-if getattr(sys, 'frozen', False):
-    base_path = Path(sys.executable).parent
-else:
-    base_path = Path(__file__).parent
 
 # === Utility Functions ===
 
@@ -45,7 +39,8 @@ def clear_canvas(canvas):
     canvas.delete("class_rect","class_text")
 
 def prefcheckbool(linestart):
-    pref = base_path/"resources" / "preferences.txt"
+    script_dir = Path(__file__).parent
+    pref = script_dir / "preferences.txt"
     value = "False"
     if pref.exists():
         with pref.open('r') as file:
@@ -57,8 +52,8 @@ def prefcheckbool(linestart):
     return tk.BooleanVar(value=value.upper() == "TRUE")
 
 def prefcheckstr(linestart):
-    script_dir = Path(__file__).parent/"resources"
-    pref = base_path/"resources" / "preferences.txt"
+    script_dir = Path(__file__).parent
+    pref = script_dir / "preferences.txt"
     value = "False"
     if pref.exists():
         with pref.open('r') as file:
@@ -217,7 +212,7 @@ def open_res():
     res.title("Result")
     res.geometry("600x600")
 
-    filepath = base_path /"resources"/ "result.txt"
+    filepath = Path(__file__).parent / "result.txt"
 
     # Load contents
     try:
@@ -248,7 +243,7 @@ def open_courses_editor():
     editor.title("Edit Courses")
     editor.geometry("500x200")
 
-    filepath = base_path/"resources"/ "courses.txt"
+    filepath = Path(__file__).parent / "courses.txt"
 
     # Load contents
     try:
@@ -292,16 +287,15 @@ def check_dependencies():
         import selenium
         import ttkbootstrap
         import ttkthemes
-        import requests
         #messagebox.showinfo("Check", "Selenium is installed!")
-        status_var.set("Selenium and ttkbootstrap and ttkthemes and requests is available.")
+        status_var.set("Selenium and ttkbootstrap and ttkthemes is available.")
     except ImportError:
         #messagebox.showwarning("Check", "Selenium is NOT installed!")
-        status_var.set("Selenium or ttkbootstrap or ttkthemes or requests missing!")
+        status_var.set("Selenium or ttkbootstrap or ttkthemes missing!")
 
 def save_preferences():
     #user_input = entry.get()
-    script_dir = base_path/"resources"
+    script_dir = Path(__file__).parent
     pref = script_dir / "preferences.txt"
     pref.write_text("# Use this carefully, as if the times are too limited, "
                         +"it wont show anything.\n# Input times with this format:"
@@ -356,7 +350,7 @@ def open_pref():
     #print(endtime_var)
 
 def run_schedule():
-    script_dir = base_path/"resources"
+    script_dir = Path(__file__).parent
     script_path = script_dir / "ClassHelper.py"
     
     # Clear previous output
@@ -364,14 +358,13 @@ def run_schedule():
     status_var.set("Running Classhelper.py...")
 
     def stream_output():
-        process = subprocess.Popen(["start", "cmd", "/k", "python",script_path],
-                         shell=True,
-                         stdout=subprocess.PIPE,
+        process = subprocess.Popen(
+            [sys.executable, script_path],
+            stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             creationflags=subprocess.CREATE_NO_WINDOW  # Windows only
-            )
-
+        )
 
         for line in process.stdout:
             if not line.startswith("Press"):
@@ -387,32 +380,6 @@ def run_schedule():
         
 
     threading.Thread(target=stream_output, daemon=True).start()
-
-def get_base_path():
-    if getattr(sys, 'frozen', False):  # if running as .exe
-        return os.path.dirname(sys.executable)
-    return os.path.dirname(__file__)
-
-def setup_files():
-    base_path = get_base_path()
-    target_folder = os.path.join(base_path, "resources")
-
-    # Create folder if it doesn't exist
-    os.makedirs(target_folder, exist_ok=True)
-
-    # Files to download
-    files = {
-        "ClassHelper.py": "https://raw.githubusercontent.com/tomdh-git/ClassHelper/refs/heads/main/ClassHelper.py"
-    }
-
-    for filename, url in files.items():
-        file_path = os.path.join(target_folder, filename)
-        if not os.path.exists(file_path):
-            log_text.insert(tk.END, f"Downloading {filename}...")
-            log_text.see(tk.END)  # Auto-scroll
-            response = requests.get(url)
-            with open(file_path, "wb") as f:
-                f.write(response.content)
 
 app = ThemedTk(theme="adapta")
 app.title("ClassHelper")
@@ -479,7 +446,7 @@ def load_schedules():
     global schedules
     schedules = []
 
-    filepath = base_path /"resources"/ "result.txt"
+    filepath = Path(__file__).parent / "result.txt"
     if filepath.exists():
         with filepath.open("r") as f:
             lines = f.readlines()
@@ -562,8 +529,6 @@ log_text.grid(row=0, column=0, sticky="nsew")
 log_scroll = ttk.Scrollbar(log_frame, command=log_text.yview)
 log_scroll.grid(row=0, column=1, sticky="ns")
 log_text.config(yscrollcommand=log_scroll.set)
-
-setup_files()
 
 # === Right Frame (for other stuff) ===
 right_frame = ttk.Frame(app)
