@@ -8,6 +8,8 @@ import ttkbootstrap as ttk
 import ttkthemes
 from ttkthemes import ThemedTk
 from ttkbootstrap.constants import *
+import math
+import time
 
 # === Globals ===
 optimize_var = None
@@ -18,7 +20,35 @@ status_var = None
 
 # === Utility Functions ===
 
+def clamp(value, min_value, max_value):
+    return max(min_value, min(value, max_value))
+
+def interpolated_rect(canvas, x1, y1, x2, y2, fill, outline="black", r=5, tags="class_rect", steps=6, delay=5):
+    total_height = y2 - y1
+    mid_y = (y1 + y2) / 2
+
+    def animate(step):
+        if step > steps:
+            return
+        # Ease-in (quadratic)
+        x = step/steps
+        f = 0.8
+        progress = clamp(math.sqrt(x*f),0,1+f)
+        height = progress * (total_height / 2)
+        top = mid_y - height
+        bottom = mid_y + height
+
+        draw_rounded_rect(canvas, x1, top, x2, bottom, fill=fill, outline=outline, r=r, tags=tags)
+
+        # Schedule next step
+        canvas.after(delay, lambda: animate(step + 1))
+
+    animate(0)
+    
+
 def draw_rounded_rect(canvas, x1, y1, x2, y2, r=10, fill="", outline="black",**kwargs):
+    x1+=5
+    x2-=5
     # Arcs
     canvas.create_arc(x1, y1, x1+2*r, y1+2*r, start=90, extent=90, style="pieslice", fill=fill, outline=outline,**kwargs)  # Top-left
     canvas.create_arc(x2-2*r, y1, x2, y1+2*r, start=0, extent=90, style="pieslice", fill=fill, outline=outline,**kwargs)  # Top-right
@@ -88,13 +118,27 @@ def set_placeholder(entry, placeholder):
     entry.bind("<FocusIn>", on_focus_in)
     entry.bind("<FocusOut>", on_focus_out)
 
-def draw_class(day_idx, start_hour, end_hour, title,color):
+def draw_class(day_idx, start_hour, end_hour, title, color):
     x1 = left_margin + day_idx * cell_width
-    y1 = top_margin + (start_hour-6) * cell_height
-    y2 = top_margin + (end_hour-6) * cell_height
-    draw_rounded_rect(canvas,x1+5, y1, (x1 + cell_width)-5, y2, fill=color,outline="black",r=5,tags="class_rect")
-    #canvas.create_rectangle(x1+5, y1, (x1 + cell_width)-5, y2, fill=color, outline="black", tags="class_rect")
-    canvas.create_text(x1 + cell_width/2, (y1 + y2)/2, text=title, font=("Arial", 8), width=cell_width-10,tags="class_text")
+    y1 = top_margin + (start_hour - 6) * cell_height
+    y2 = top_margin + (end_hour - 6) * cell_height
+
+    steps = 6
+    delay = 5  # ms
+    total_animation_time = steps * delay
+
+    interpolated_rect(canvas, x1, y1, x1 + cell_width, y2, fill=color, outline="black", r=5, tags="class_rect", steps=steps, delay=delay)
+
+    # Schedule the text to appear after the animation finishes
+    canvas.after(total_animation_time*10, lambda: canvas.create_text(
+        x1 + cell_width / 2,
+        (y1 + y2) / 2,
+        text=title,
+        font=("Arial", 8),
+        width=cell_width - 10,
+        tags="class_text"
+    ))
+    
 
 def drawsched(s,c):
     clear_canvas(c)
@@ -149,6 +193,7 @@ def drawsched(s,c):
     "gold1"
 ]
     color = 0
+    courses = []
     #print(s)
     pattern = re.compile(r"^\('([A-Z]{3})', '(\d{3}[A-Z]?)'\): CRN (\d{5}) \| (\[.*?\])$")
     a = []
@@ -198,8 +243,6 @@ def drawsched(s,c):
 
                         #print(day, start, end, (dept, course), colors[color])
                         draw_class(day, start, end, (dept, course), colors[color])
-
-
                 #draw_class(day_idx=1, start_hour=9, end_hour=11, title="Math 101")
         if color<len(colors)-1:
             color+=1
