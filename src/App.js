@@ -105,7 +105,7 @@ export default function App() {
 
     return (
         <div className={`app-container ${darkMode ? "dark-mode" : ""}`}>
-            <h2 className="app-title">Schedule Planner</h2>
+            <h2 className="app-title">ClassHelper V2</h2>
 
             {/* Centered Top Navigation Buttons */}
             <div className="nav-buttons-centered">
@@ -122,7 +122,7 @@ export default function App() {
                             <input
                                 className="input-box"
                                 type="text"
-                                placeholder="Ex: CSE 374"
+                                placeholder="Ex: CSE 374, SLM 150C"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
                             />
