@@ -56,6 +56,8 @@ export default function App() {
         setLastError(null);
         if (!(await checkAlive())) return;
 
+        const freeTimeFields = optimizeFreeTime ? "freeTime" : "";
+
         const query = `
         query {
           getScheduleByCourses(
@@ -63,13 +65,13 @@ export default function App() {
             campus: ["${campus}"]
             term: "${term}"
             optimizeFreeTime: ${optimizeFreeTime}
-            preferredStart: "${formatTimeForQuery(timeRange[0])}"
-            preferredEnd: "${formatTimeForQuery(timeRange[1])}"
+            ${optimizeFreeTime ? `preferredStart: "${formatTimeForQuery(timeRange[0])}"` : ""}
+            ${optimizeFreeTime ? `preferredEnd: "${formatTimeForQuery(timeRange[1])}"` : ""}
           ) {
             ... on SuccessSchedule {
               schedules {
                 courses { subject courseNum crn }
-                freeTime
+                ${freeTimeFields}
               }
             }
             ... on ErrorSchedule {
@@ -107,7 +109,6 @@ export default function App() {
         <div className={`app-container ${darkMode ? "dark-mode" : ""}`}>
             <h2 className="app-title">ClassHelper V2</h2>
 
-            {/* Centered Top Navigation Buttons */}
             <div className="nav-buttons-centered">
                 <button onClick={() => setPage("planner")} className={`btn nav-btn ${page === "planner" ? "active" : ""}`}>Planner</button>
                 <button onClick={() => setPage("search")} className={`btn nav-btn ${page === "search" ? "active" : ""}`}>Search</button>
@@ -115,61 +116,75 @@ export default function App() {
             </div>
 
             {page === "planner" && (
-                <>
-                    <div className="planner-row">
-                        {/* Add Course Panel */}
-                        <div className="panel add-course-panel">
-                            <input
-                                className="input-box"
-                                type="text"
-                                placeholder="Ex: CSE 374, SLM 150C"
-                                value={input}
-                                onChange={(e) => setInput(e.target.value)}
-                            />
-                            <button className="btn add-btn" onClick={addCourse}>Add</button>
-                            <button className="btn generate-btn" onClick={getSchedules}>Generate</button>
-
-                            {loading && <div className="loading-bar"><div className="loading-progress" /></div>}
-                            {!loading && <div className="status-text">{lastError}</div>}
-                        </div>
-
-                        {/* Course List Panel */}
-                        <div className="panel course-panel">
-                            <h4>Courses</h4>
-                            <ul className="course-list">
-                                {courses.map((course, i) => (
-                                    <li key={i} className="course-item">
-                                        {course}
-                                        <button className="remove-btn" onClick={() => removeCourse(i)}>✕</button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-
-                    {/* Results Below */}
-                    <div className="results-panel">
-                        {result ? (
-                            "schedules" in result ? (
-                                result.schedules.map((sched, idx) => (
-                                    <div key={idx} className="result-card">
-                                        <b>Courses:</b>
-                                        <ul>
-                                            {sched.courses.map((c, i) => (
-                                                <li key={i}>{c.subject} {c.courseNum} — CRN {c.crn}</li>
-                                            ))}
-                                        </ul>
-                                        <b>Free Time:</b> {sched.freeTime}
+                <div className="planner-split">
+                    {/* Add course */}
+                    <div className="planner-left">
+                        <div className="planner-row">
+                            <div className="panel add-course-panel">
+                                <div className="add-course-label">
+                                    <span>Add Course</span>
+                                    <div className="info-container">
+                                    <button className="info-btn">i
+                                        <div className="info-tooltip">
+                                            Type in the course code (e.g., CSE 374) and click "Add" to include it in your planner.
+                                        </div>
+                                    </button>
                                     </div>
-                                ))
+                                </div>
+                                <input
+                                    className="input-box"
+                                    type="text"
+                                    placeholder="Ex: CSE 374"
+                                    value={input}
+                                    onChange={(e) => setInput(e.target.value)}
+                                />
+                                <button className="btn add-btn" onClick={addCourse}>Add</button>
+                                <button className="btn generate-btn" onClick={getSchedules}>Generate</button>
+                                {loading && <div className="loading-bar"><div className="loading-progress" /></div>}
+                                {!loading && <div className="status-text">{lastError}</div>}
+                            </div>
+
+                            <div className="panel course-panel">
+                                <h4>Courses</h4>
+                                <ul className="course-list">
+                                    {courses.map((course, i) => (
+                                        <li key={i} className="course-item">
+                                            {course}
+                                            <button className="remove-btn" onClick={() => removeCourse(i)}>✕</button>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div className="results-panel">
+                            {result ? (
+                                "schedules" in result ? (
+                                    result.schedules.map((sched, idx) => (
+                                        <div key={idx} className="result-card">
+                                            <b>Courses:</b>
+                                            <ul>
+                                                {sched.courses.map((c, i) => (
+                                                    <li key={i}>{c.subject} {c.courseNum} — CRN {c.crn}</li>
+                                                ))}
+                                            </ul>
+                                            {optimizeFreeTime && <><b>Free Time:</b> {sched.freeTime}</>}
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="error-text">{result.error}: {result.message}</div>
+                                )
                             ) : (
-                                <div className="error-text">{result.error}: {result.message}</div>
-                            )
-                        ) : (
-                            <p className="placeholder-text">Results will appear here.</p>
-                        )}
+                                <p className="placeholder-text">Results will appear here.</p>
+                            )}
+                        </div>
                     </div>
-                </>
+
+                    {/* RIGHT SIDE (Blank Panel) */}
+                    <div className="planner-right">
+                        {/* Placeholder for future use */}
+                    </div>
+                </div>
             )}
 
             {page === "search" && (
@@ -182,9 +197,17 @@ export default function App() {
             {page === "prefs" && (
                 <div className="panel prefs-panel">
                     <h4>Preferences</h4>
-
                     <div className="prefs-row">
-                        <span>Campus:</span>
+                        <span>
+                        Campus
+                            <div className="info-container">
+                        <button className="info-btn">i
+                          <div className="info-tooltip">
+                            Select which campus to filter courses from. Options include Oxford, Hamilton, Luxembourg, or All campuses.
+                          </div>
+                        </button>
+                                </div>
+                        </span>
                         <select value={campus} onChange={(e) => setCampus(e.target.value)}>
                             <option value="O">Oxford</option>
                             <option value="M">Hamilton</option>
@@ -194,7 +217,16 @@ export default function App() {
                     </div>
 
                     <div className="prefs-row">
-                        <span>Term:</span>
+                        <span>
+                        Term
+                            <div className="info-container">
+                        <button className="info-btn">i
+                          <div className="info-tooltip">
+                            Choose the academic term (e.g., Spring 2026)
+                          </div>
+                        </button>
+                                </div>
+                        </span>
                         <select value={term} onChange={(e) => setTerm(e.target.value)}>
                             <option value="202620">Spring 2026</option>
                             <option value="202610">Fall 2025</option>
@@ -202,35 +234,69 @@ export default function App() {
                     </div>
 
                     <div className="switch-container">
-                        <span>Optimize Free Time</span>
-                        <label className="switch">
-                            <input type="checkbox" checked={optimizeFreeTime} onChange={() => setOptimizeFreeTime(!optimizeFreeTime)} />
-                            <span className="slider round" />
-                        </label>
+                        <span>
+                        Optimize Free Time
+                            <div className="info-container">
+                        <button className="info-btn">i
+                          <div className="info-tooltip">
+                            Attempt to schedule classes with larger gaps in between to give you more free time during the day.
+                          </div>
+                        </button>
+                                </div>
+                      </span>
+                    <label className="switch">
+                        <input type="checkbox" checked={optimizeFreeTime} onChange={() => setOptimizeFreeTime(!optimizeFreeTime)} />
+                        <span className="slider round" />
+                    </label>
                     </div>
 
                     <div className="switch-container">
-                        <span>Dark Mode</span>
+                        <span>
+                       Dark Mode
+                            <div className="info-container">
+                        <button className="info-btn">i
+                          <div className="info-tooltip">
+                            Toggle dark mode for the app
+                          </div>
+                        </button>
+                                </div>
+                      </span>
                         <label className="switch">
                             <input type="checkbox" checked={darkMode} onChange={() => setDarkMode(!darkMode)} />
                             <span className="slider round" />
                         </label>
                     </div>
 
-                    <div className="time-label">Preferred Time: {formatTime(timeRange[0])} - {formatTime(timeRange[1])}</div>
-                    <Range
-                        step={0.5}
-                        min={6}
-                        max={22}
-                        values={timeRange}
-                        onChange={(values) => setTimeRange(values)}
-                        renderTrack={({ props, children }) => (
-                            <div {...props} className="range-track">{children}</div>
-                        )}
-                        renderThumb={({ props }) => (
-                            <div {...props} className="range-thumb" />
-                        )}
-                    />
+                    {(
+                        <div className="prefs-row prefs-time-row" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                            <div className="prefs-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <span>Preferred Time: {formatTime(timeRange[0])} - {formatTime(timeRange[1])}</span>
+                                <div className="info-container">
+                                    <button className="info-btn">i
+                                        <div className="info-tooltip">
+                                            Set the earliest and latest times you prefer your classes to be scheduled.
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="time-slider" style={{ width: '100%', marginTop: '8px' }}>
+                                <Range
+                                    step={0.5}
+                                    min={6}
+                                    max={22}
+                                    values={timeRange}
+                                    onChange={(values) => setTimeRange(values)}
+                                    renderTrack={({ props, children }) => (
+                                        <div {...props} className="range-track">{children}</div>
+                                    )}
+                                    renderThumb={({ props }) => (
+                                        <div {...props} className="range-thumb" />
+                                    )}
+                                />
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             )}
         </div>
