@@ -15,10 +15,20 @@
 }
 
 .app-title {
+    display: flex;
+    justify-content: center;   /* center horizontally */
+    align-items: center;       /* center logo + text vertically */
+    gap: 10px;                 /* space between logo and text */
     font-weight: 600;
     font-size: 1.6rem;
-    text-align: center;
     margin-bottom: 15px;
+    text-align: center;
+}
+
+.app-logo {
+    height: 32px;       /* adjust size here */
+    width: 32px;
+    object-fit: contain;
 }
 
 /* ----------------- Navigation Buttons ----------------- */
@@ -149,6 +159,7 @@
     background: transparent;
     color: #e63946;
     cursor: pointer;
+    font-weight: 500;
 }
 
 /* Inputs & Dropdowns */
@@ -379,7 +390,7 @@ input:checked + .slider:before { transform: translateX(20px); }
     top: 120%;
     left: 50%;
     transform: translateX(-50%);
-    width: 220px;
+    width: 175px;
     padding: 8px;
     background-color: #333;
     color: #fff;

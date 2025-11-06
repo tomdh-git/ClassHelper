@@ -109,7 +109,10 @@ export default function App() {
 
     return (
         <div className={`app-container ${darkMode ? "dark-mode" : ""}`}>
-            <h2 className="app-title">ClassHelper V2</h2>
+            <h2 className="app-title">
+                <img src="/logo.png" alt="Logo" className="app-logo" />
+                ClassHelper V2
+            </h2>
 
             <div className="nav-buttons-centered">
                 <button onClick={() => setPage("planner")} className={`btn nav-btn ${page === "planner" ? "active" : ""}`}>Planner</button>
