@@ -19,6 +19,7 @@ export default function App() {
     const [optimizeFreeTime, setOptimizeFreeTime] = useState(true);
     const [darkMode, setDarkMode] = useState(false);
     const [timeRange, setTimeRange] = useState([8, 18]);
+    const [currentIndex, setCurrentIndex] = useState(0);
 
     const formatTimeForQuery = (val) => {
         const hour = Math.floor(val);
@@ -90,6 +91,7 @@ export default function App() {
             });
             const data = await res.json();
             setResult(data.data.getScheduleByCourses);
+            setCurrentIndex(0);
         } catch {
             setLastError("Failed to fetch");
         } finally {
@@ -158,31 +160,54 @@ export default function App() {
                         </div>
 
                         <div className="results-panel">
-                            {result ? (
-                                "schedules" in result ? (
-                                    result.schedules.map((sched, idx) => (
-                                        <div key={idx} className="result-card">
-                                            <b>Courses:</b>
-                                            <ul>
-                                                {sched.courses.map((c, i) => (
-                                                    <li key={i}>{c.subject} {c.courseNum} — CRN {c.crn}</li>
-                                                ))}
-                                            </ul>
-                                            {optimizeFreeTime && <><b>Free Time:</b> {sched.freeTime}</>}
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="error-text">{result.error}: {result.message}</div>
-                                )
+                            {result && "schedules" in result && result.schedules.length > 0 ? (
+                                <div className="schedule-panel">
+                                    <button
+                                        className={`arrow-btn top ${currentIndex === 0 ? "disabled" : ""}`}
+                                        onClick={() => setCurrentIndex((i) => Math.max(i - 1, 0))}
+                                    >
+                                        ↑
+                                    </button>
+
+                                    <div className="schedule-card-container">
+                                        {result.schedules.map((sched, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`result-card ${idx === currentIndex ? "active" : ""} ${idx < currentIndex ? "slide-out-up" : ""} ${idx > currentIndex ? "slide-in-down" : ""}`}
+                                            >
+                                                <b>Courses:</b>
+                                                <ul>
+                                                    {sched.courses.map((c, i) => (
+                                                        <li key={i}>{c.subject} {c.courseNum} — CRN {c.crn}</li>
+                                                    ))}
+                                                </ul>
+                                                {optimizeFreeTime && <><b>Free Time:</b> {sched.freeTime}</>}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        className={`arrow-btn bottom ${currentIndex === result.schedules.length - 1 ? "disabled" : ""}`}
+                                        onClick={() =>
+                                            setCurrentIndex((i) => Math.min(i + 1, result.schedules.length - 1))
+                                        }
+                                    >
+                                        ↓
+                                    </button>
+                                </div>
                             ) : (
                                 <p className="placeholder-text">Results will appear here.</p>
                             )}
                         </div>
                     </div>
 
-                    {/* RIGHT SIDE (Blank Panel) */}
-                    <div className="planner-right">
-                        {/* Placeholder for future use */}
+                    {/* RIGHT SIDE (Schedule Visualization Panel) */}
+                    <div className="planner-right panel schedule-panel">
+                        <h4>Schedule Visualization</h4>
+                        <div className="schedule-placeholder">
+                            {/* This is where you'll eventually render the schedule */}
+                            <p>Schedule will appear here.</p>
+                        </div>
                     </div>
                 </div>
             )}

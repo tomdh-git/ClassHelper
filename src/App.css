@@ -181,12 +181,11 @@ select {
 
 /* ----------------- Results Panel ----------------- */
 .results-panel {
-    margin-top: 20px;
-    padding: 15px;
+    position: relative;
+    width: 100%;
+    overflow: hidden;
     border-radius: 12px;
-    background: #fff;
-    max-height: 400px;
-    overflow-y: auto;
+    background: rgb(253, 253, 253);
 }
 
 .app-container.dark-mode .results-panel {
@@ -194,15 +193,40 @@ select {
 }
 
 .result-card {
-    background: #fdfdfd;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 1rem;
+    box-sizing: border-box;
+    background: #ffffff;
+    border-radius: 1rem;
+    transition: transform 0.4s ease, opacity 0.4s ease;
+    opacity: 0;
+    transform: translateY(100%);
+}
+
+.result-card.active {
+    opacity: 1;
+    transform: translateY(0);
+    z-index: 2;
+}
+
+.result-card.slide-out-up {
+    transform: translateY(-100%);
+    opacity: 0;
+    z-index: 1;
+}
+
+.result-card.slide-in-down {
+    transform: translateY(100%);
+    opacity: 0;
+    z-index: 1;
 }
 
 .app-container.dark-mode .result-card {
-    background: #2c2c2c;
+    background: #1e1e1e;
     box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 
@@ -350,4 +374,140 @@ input:checked + .slider:before { transform: translateX(20px); }
 .info-container:hover .info-tooltip {
     opacity: 1;
     visibility: visible;
+}
+
+/* Planner Right Panel (Schedule Visualization) */
+.planner-right {
+    flex: 1;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+.planner-split {
+    display: flex;       /* Horizontal layout */
+    gap: 20px;           /* Space between left and right panels */
+    align-items: flex-start; /* Align top edges */
+}
+
+.planner-left {
+    flex: 0 0 450px; /* Adjust width as needed */
+}
+.planner-left .results-panel {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    position: relative; /* keeps arrows positioned correctly */
+}
+
+.schedule-panel {
+    position: relative;
+    width: 100%;
+    height: 400px; /* fixed panel height */
+    overflow: hidden; /* hides cards outside panel */
+    border-radius: 1rem;
+    background: #fff;
+}
+
+.app-container.dark-mode .schedule-panel {
+    background: #1e1e1e;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+
+.schedule-placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+    font-size: 0.95rem;
+    text-align: center;
+}
+
+.schedule-card-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.schedule-carousel {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.schedule-wrapper {
+    overflow: hidden;           /* hide cards outside container */
+    height: 300px;              /* or whatever fixed height you want */
+    position: relative;
+}
+
+.schedules-container {
+    scroll-snap-type: y mandatory;
+    overflow-y: auto;
+    max-height: 360px; /* leave space for arrows */
+}
+
+.scroll-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.arrow-btn {
+    position: absolute;
+    right: 10px;
+    z-index: 20; /* higher than the cards */
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.arrow-btn.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.arrow-btn.top {
+    top: 10px;
+}
+
+.arrow-btn.bottom {
+    bottom: 10px;
+}
+
+
+.arrow-btn.top {
+    top: 10px;
+}
+
+.arrow-btn.bottom {
+    bottom: 10px;
+}
+
+.arrow-btn.disabled {
+    background: #ccc;
+    cursor: default;
+}
+
+.slide-card {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    box-sizing: border-box;
+    background: #fdfdfd;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: transform 0.4s ease-in-out;
 }
