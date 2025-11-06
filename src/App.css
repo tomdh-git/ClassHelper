@@ -104,24 +104,41 @@
 /* Course List Panel */
 .course-panel {
     flex: 1;
-    max-height: 250px;
-    overflow-y: auto;
+    height: 200px;          /* fixed height so it never grows */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;       /* prevent panel from expanding */
 }
 
+/* Label stays at the top */
+.course-label {
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+/* Scrollable area inside the panel */
 .course-list {
     list-style: none;
     padding: 0;
     margin: 0;
+    flex: 1;                /* take remaining space */
+    overflow-y: auto;       /* scroll vertically */
+    overflow-x: hidden;
 }
 
+/* Course items */
 .course-item {
     display: flex;
     justify-content: space-between;
     padding: 6px 10px;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
     background: #f3f3f3;
     border-radius: 8px;
+    flex-shrink: 0;         /* prevents items from shrinking */
 }
+
 
 .app-container.dark-mode .course-item {
     background: #2c2c2c;
@@ -257,9 +274,12 @@ select {
 
 .switch-container {
     display: flex;
+    justify-content: space-between; /* left block left, switch right */
     align-items: center;
-    gap: 5px;
-    margin-bottom: 10px;
+    width: 100%;
+    padding-bottom: 12px;
+    gap: 12px;
+    box-sizing: border-box;
 }
 
 .prefs-time-row {
@@ -345,6 +365,7 @@ input:checked + .slider:before { transform: translateX(20px); }
     background-color: #007bff;
     color: white;
     font-size: 12px;
+    font-weight: bold;
     border: none;
     cursor: pointer;
     display: flex;

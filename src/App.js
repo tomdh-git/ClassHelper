@@ -128,7 +128,7 @@ export default function App() {
                                     <div className="info-container">
                                     <button className="info-btn">i
                                         <div className="info-tooltip">
-                                            Type in the course code (e.g., CSE 374) and click "Add" to include it in your planner.
+                                            Type in the course (e.g., CSE 374 or SLM 150C) and click "Add" to include it in your planner. Click "Generate" to send the request.
                                         </div>
                                     </button>
                                     </div>
@@ -136,7 +136,7 @@ export default function App() {
                                 <input
                                     className="input-box"
                                     type="text"
-                                    placeholder="Ex: CSE 374"
+                                    placeholder="Ex: CSE 374, SLM 150C"
                                     value={input}
                                     onChange={(e) => setInput(e.target.value)}
                                 />
@@ -147,7 +147,17 @@ export default function App() {
                             </div>
 
                             <div className="panel course-panel">
-                                <h4>Courses</h4>
+                                <div className="course-label">
+                                    <span>Courses</span>
+                                    <div className="info-container">
+                                        <button className="info-btn">i
+                                            <div className="info-tooltip">
+                                                These are the courses you’ve added. You can remove a course using the X button.
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+
                                 <ul className="course-list">
                                     {courses.map((course, i) => (
                                         <li key={i} className="course-item">
