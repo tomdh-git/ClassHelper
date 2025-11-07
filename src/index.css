@@ -1,12 +1,16 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap');
+
 * {
     box-sizing: border-box;
-    font-family: "Inter", sans-serif;
+    font-family: "Nunito", -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "SF Pro Text", "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 body {
     margin: 0;
-    background-color: #f5f6fa;
-    color: #2c3e50;
+    background-color: #f6f7f9;
+    color: #1f2937;
 }
 
 button {
