@@ -57,7 +57,9 @@ export default function App() {
     const ATTR_LABELS = Object.fromEntries(ATTRIBUTE_MAP.map(a => [a.code, a.label]));
     const [fillerAttrs, setFillerAttrs] = useState([]);
     const toggleFillerAttr = (code) => {
-        setFillerAttrs(prev => prev.includes(code) ? prev.filter(a => a !== code) : [...prev, code]);
+        setFillerAttrs(prev => prev.includes(code)
+            ? prev.filter(a => a !== code)
+            : [code, ...prev]);
     };
     const addFillerToPlanner = () => {
         if (fillerAttrs.length === 0) { notify("Select at least one attribute", "error"); return; }
@@ -465,44 +467,57 @@ export default function App() {
                         <div className="snap-container">
                             <div ref={searchSnapRef} className="snap-scroll search-snap">
                                 {/* Search inputs card */}
-                                <section className="panel-card">
-                                    <div className="search-row">
-                                        <div className="search-card">
-                                            <h4>Search by CRN</h4>
-                                            <input className="input-box input-dark" placeholder="e.g., 12384" value={crnInput} onChange={(e) => setCrnInput(e.target.value)} />
-                                            <div className="btn-row">
-                                                <button className="generate-btn" onClick={() => { searchByCRN(); setTimeout(() => searchScrollSnapBy(1), 0); }}>Search CRN</button>
+                                <section className="panel-card search-panel">
+                                    <div className="search-panel-body">
+                                        <div className="search-first-grid">
+                                            <div className="search-col">
+                                                <div className="search-card">
+                                                    <div className="search-inputs">
+                                                        <label>Search by CRN</label>
+                                                        <input className="input-box input-dark" placeholder="e.g., 12384" value={crnInput} onChange={(e) => setCrnInput(e.target.value)} />
+                                                        <div className="btn-row">
+                                                            <button className="generate-btn btn-small" onClick={() => { searchByCRN(); setTimeout(() => searchScrollSnapBy(1), 0); }}>Search CRN</button>
+                                                        </div>
+                                                        <label>Search by Course</label>
+                                                        <input className="input-box input-dark" placeholder="e.g., CSE 381" value={courseSearchInput} onChange={(e) => setCourseSearchInput(e.target.value)} />
+                                                        <div className="btn-row">
+                                                            <button className="generate-btn btn-small" onClick={() => { searchByInfo(); setTimeout(() => searchScrollSnapBy(1), 0); }}>Search Course</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="search-card">
-                                            <h4>Search by Course</h4>
-                                            <input className="input-box input-dark" placeholder="e.g., CSE 381" value={courseSearchInput} onChange={(e) => setCourseSearchInput(e.target.value)} />
-                                            <div className="btn-row">
-                                                <button className="generate-btn" onClick={() => { searchByInfo(); setTimeout(() => searchScrollSnapBy(1), 0); }}>Search Course</button>
+                                            <div className="filler-col">
+                                                <div className="filler-box">
+                                                    <div className="filler-left">
+                                                        <h4>Filler Attributes</h4>
+                                                        <div className="selected-attrs">
+                                                            {fillerAttrs.length ? (
+                                                                <>
+                                                                    {fillerAttrs.slice(0, 8).map((a) => (
+                                                                        <span key={a} className="attr-chip small">{ATTR_LABELS[a] || a}</span>
+                                                                    ))}
+                                                                    {fillerAttrs.length > 8 && (
+                                                                        <span className="attr-chip small counter">+{fillerAttrs.length - 8}</span>
+                                                                    )}
+                                                                </>
+                                                            ) : <span className="muted">None selected</span>}
+                                                        </div>
+                                                        <div className="btn-row compact">
+                                                            <button className="add-btn btn-small" onClick={addFillerToPlanner}>Add Filler to Planner</button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="filler-right attr-scroll small-grid">
+                                                        {ATTRIBUTE_MAP.map(opt => (
+                                                            <button key={opt.code} className={`choice-button small ${fillerAttrs.includes(opt.code) ? 'selected' : ''}`} onClick={() => toggleFillerAttr(opt.code)}>{opt.label}</button>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                    <div className="filler-box">
-                                        <div className="filler-left">
-                                            <h4>Filler Attributes</h4>
-                                            <div className="selected-attrs">
-                                                {fillerAttrs.length ? fillerAttrs.map((a, i) => (
-                                                    <span key={i} className="attr-chip">{a}</span>
-                                                )) : <span className="muted">None selected</span>}
-                                            </div>
-                                            <div className="btn-row">
-                                                <button className="add-btn" onClick={addFillerToPlanner}>Add Filler to Planner</button>
-                                            </div>
-                                        </div>
-                                        <div className="filler-right attr-scroll">
-                                            {ATTRIBUTE_MAP.map(opt => (
-                                                <button key={opt.code} className={`choice-button ${fillerAttrs.includes(opt.code) ? 'selected' : ''}`} onClick={() => toggleFillerAttr(opt.code)}>{opt.label}</button>
-                                            ))}
                                         </div>
                                     </div>
                                 </section>
                                 {/* Results card */}
-                                <section className="panel-card">
+                                <section className="panel-card search-panel">
                                     <div className="panel-card-header">
                                         <h4>Results</h4>
                                         <button className="panel-back-up-inline" onClick={() => searchScrollSnapBy(-1)} title="Back to Search"><IoChevronUp /></button>
