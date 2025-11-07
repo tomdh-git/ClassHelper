@@ -1,7 +1,60 @@
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Range } from "react-range";
 import "./App.css";
 import { IoClose, IoChevronUp, IoChevronDown, IoSunny, IoMoon } from "react-icons/io5";
+
+function InfoTip({ content, offset = 8 }) {
+    const btnRef = useRef(null);
+    const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+
+    const update = () => {
+        const el = btnRef.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        setPos({ top: r.bottom + offset, left: r.left + r.width / 2 });
+    };
+
+    useEffect(() => {
+        if (!open) return;
+        update();
+        const onScroll = () => update();
+        const onResize = () => update();
+        window.addEventListener('scroll', onScroll, true);
+        window.addEventListener('resize', onResize);
+        return () => {
+            window.removeEventListener('scroll', onScroll, true);
+            window.removeEventListener('resize', onResize);
+        };
+    }, [open]);
+
+    return (
+        <>
+            <button
+                ref={btnRef}
+                className="info-btn"
+                onMouseEnter={() => { update(); setTimeout(() => setOpen(true), 0); }}
+                onMouseLeave={() => setOpen(false)}
+                onFocus={() => { update(); setTimeout(() => setOpen(true), 0); }}
+                onBlur={() => setOpen(false)}
+            >
+                i
+            </button>
+            {open && createPortal(
+                <div
+                    className="info-tooltip portal"
+                    style={{ top: pos.top, left: pos.left }}
+                    onMouseEnter={() => setOpen(true)}
+                    onMouseLeave={() => setOpen(false)}
+                >
+                    {content}
+                </div>,
+                document.body
+            )}
+        </>
+    );
+}
 
 const BASE_URL = "https://courseapi-production-3751.up.railway.app";
 const GRAPHQL_URL = `${BASE_URL}/graphql`;
@@ -358,7 +411,14 @@ export default function App() {
                     <div className="planner-container">
                         {/* Left panel - Schedule Visualizer */}
                         <div className="left-panel">
-                            <h3>Schedule Preview</h3>
+                            <div className="panel-card-header">
+                                <div className="title-with-info">
+                                    <h3>Schedule Preview</h3>
+                                    <div className="info-container">
+                                        <InfoTip content={<span>Visual summary of the currently selected schedule.</span>} />
+                                    </div>
+                                </div>
+                            </div>
                             <div className="schedule-visual">
                                 <p>Schedule visualization goes here.</p>
                             </div>
@@ -369,8 +429,15 @@ export default function App() {
                             <div className="snap-container">
                                 <div ref={snapScrollRef} className="snap-scroll">
                                     {/* Card 1 */}
-                                    <section className="panel-card">
-                                        <h3>Add Courses</h3>
+                                    <section className="panel-card add-courses-card">
+                                        <div className="panel-card-header">
+                                            <div className="title-with-info">
+                                                <h3>Add Courses</h3>
+                                                <div className="info-container">
+                                                    <InfoTip content={<span>Add courses manually or include filler attributes to auto-search options during generation.</span>} />
+                                                </div>
+                                            </div>
+                                        </div>
                                         <input
                                             className="input-box"
                                             placeholder="Ex: CSE 374"
@@ -382,7 +449,12 @@ export default function App() {
                                             <button className="generate-btn" onClick={getSchedules}>Generate</button>
                                         </div>
 
-                                    <h4 style={{ marginTop: "15px" }}>Your Courses</h4>
+                                    <div className="subheader-with-info planner-your-courses-header">
+                                        <h4>Your Courses</h4>
+                                        <div className="info-container">
+                                            <InfoTip content={<span>Items added to your planner. Fillers are placeholders matched by attributes.</span>} />
+                                        </div>
+                                    </div>
                                     <div className="course-list-container">
                                         <ul className="course-list">
                                         {courses.map((course, i) => (
@@ -391,13 +463,13 @@ export default function App() {
                                                     <>
                                                         <strong>Filler</strong>
                                                         <div className="info-container">
-                                                            <button className="info-btn">i
-                                                                <div className="info-tooltip">
-                                                {course.attrs?.length ? course.attrs.map((a, idx) => (
+                                                            <InfoTip content={course.attrs?.length ? (
+                                                                <div className="tooltip-chip-wrap">
+                                                                    {course.attrs.map((a, idx) => (
                                                                         <span key={idx} className="attr-chip">{ATTR_LABELS[a] || a}</span>
-                                                                    )) : 'No attributes'}
+                                                                    ))}
                                                                 </div>
-                                                            </button>
+                                                            ) : (<span>No attributes</span>)} />
                                                         </div>
                                                     </>
                                                 ) : (
@@ -415,7 +487,12 @@ export default function App() {
                                     {/* Card 2 */}
                                     <section className="panel-card">
                                         <div className="panel-card-header">
-                                            <h3>Generated Schedules</h3>
+                                            <div className="title-with-info">
+                                                <h3>Generated Schedules</h3>
+                                                <div className="info-container">
+                                                    <InfoTip content={<span>Browse the generated schedules one at a time using the arrows.</span>} />
+                                                </div>
+                                            </div>
                                             <button className="panel-back-up-inline" onClick={() => scrollSnapBy(-1)} title="Back to Add Courses">
                                                 <IoChevronUp />
                                             </button>
@@ -426,7 +503,7 @@ export default function App() {
                                                     <div className="result-window">
                                                         <div className="result-slider" style={{ height: `${result.schedules.length * 100}%`, transform: `translateY(-${(100 / result.schedules.length) * currentIndex}%)` }}>
                                                             {result.schedules.map((sched, idx) => (
-                                                                <div key={idx} className="result-slide" style={{ height: `${100}%` }}>
+                                                                <div key={idx} className="result-slide" style={{ height: `${100 / result.schedules.length}%` }}>
                                                                     <div className="slide-scroll">
                                                                         <div className="schedule-courses">
                                                                             {sched.courses.map((c, i) => (
@@ -452,11 +529,6 @@ export default function App() {
                                         ) : <p>No results yet.</p>}
                                     </section>
                                 </div>
-                                {hasMoreAbove && (
-                                    <button className="scroll-indicator top" onClick={() => scrollSnapBy(-1)}>
-                                        <IoChevronUp />
-                                    </button>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -471,16 +543,28 @@ export default function App() {
                                     <div className="search-panel-body">
                                         <div className="search-first-grid">
                                             <div className="search-col">
-                                                <div className="search-card">
-                                                    <div className="search-inputs">
-                                                        <label>Search by CRN</label>
+                                                <div className="search-subgrid">
+                                                    <div className="search-subcard">
+                                                        <div className="label-with-info">
+                                                            <label>Search by CRN</label>
+                                                            <div className="info-container">
+                                                                <InfoTip content={<span>Enter a numeric CRN (course registration number).</span>} />
+                                                            </div>
+                                                        </div>
                                                         <input className="input-box input-dark" placeholder="e.g., 12384" value={crnInput} onChange={(e) => setCrnInput(e.target.value)} />
-                                                        <div className="btn-row">
+                                                        <div className="btn-row compact">
                                                             <button className="generate-btn btn-small" onClick={() => { searchByCRN(); setTimeout(() => searchScrollSnapBy(1), 0); }}>Search CRN</button>
                                                         </div>
-                                                        <label>Search by Course</label>
+                                                    </div>
+                                                    <div className="search-subcard">
+                                                        <div className="label-with-info">
+                                                            <label>Search by Course</label>
+                                                            <div className="info-container">
+                                                                <InfoTip content={<span>Use format like CSE 381 (subject + number).</span>} />
+                                                            </div>
+                                                        </div>
                                                         <input className="input-box input-dark" placeholder="e.g., CSE 381" value={courseSearchInput} onChange={(e) => setCourseSearchInput(e.target.value)} />
-                                                        <div className="btn-row">
+                                                        <div className="btn-row compact">
                                                             <button className="generate-btn btn-small" onClick={() => { searchByInfo(); setTimeout(() => searchScrollSnapBy(1), 0); }}>Search Course</button>
                                                         </div>
                                                     </div>
@@ -489,7 +573,12 @@ export default function App() {
                                             <div className="filler-col">
                                                 <div className="filler-box">
                                                     <div className="filler-left">
-                                                        <h4>Filler Attributes</h4>
+                                                        <div className="title-with-info">
+                                                            <h4>Filler Attributes</h4>
+                                                            <div className="info-container">
+                                                                <InfoTip content={<span>Pick attributes to match filler courses during generation.</span>} />
+                                                            </div>
+                                                        </div>
                                                         <div className="selected-attrs">
                                                             {fillerAttrs.length ? (
                                                                 <>
@@ -536,6 +625,7 @@ export default function App() {
                         </div>
                     </div>
                 )}
+                
                 {page === "prefs" && <div className="prefs-panel">
                     <div className="panel prefs-panel">
                         <h4>Preferences</h4>
@@ -544,11 +634,7 @@ export default function App() {
                             <span>
                                 Campus
                                 <div className="info-container">
-                                    <button className="info-btn">i
-                                        <div className="info-tooltip" style={{ zIndex: 99999 }}>
-                                            Select one or more campuses. Choosing "All" will ignore other campus filters.
-                                        </div>
-                                    </button>
+                                    <InfoTip content={<span>Select one or more campuses. Choosing "All" will ignore other campus filters.</span>} />
                                 </div>
                             </span>
                             <div className="choice-group multi">
@@ -573,11 +659,7 @@ export default function App() {
                             <span>
                                 Term
                                 <div className="info-container">
-                                    <button className="info-btn">i
-                                        <div className="info-tooltip" style={{ zIndex: 99999 }}>
-                                            Choose a single academic term.
-                                        </div>
-                                    </button>
+                                    <InfoTip content={<span>Choose a single academic term.</span>} />
                                 </div>
                             </span>
                             <div className="choice-group single">
@@ -600,11 +682,7 @@ export default function App() {
                             <span>
                                 Optimize Free Time
                                 <div className="info-container">
-                                    <button className="info-btn">i
-                                        <div className="info-tooltip" style={{ zIndex: 99999 }}>
-                                            Attempt to schedule classes with larger gaps in between to give you more free time during the day.
-                                        </div>
-                                    </button>
+                                    <InfoTip content={<span>Attempt to schedule classes with larger gaps in between to give you more free time during the day.</span>} />
                                 </div>
                             </span>
                             <label className="switch">
@@ -617,11 +695,7 @@ export default function App() {
                             <span>
                                 Dark Mode
                                 <div className="info-container">
-                                    <button className="info-btn">i
-                                        <div className="info-tooltip" style={{ zIndex: 99999 }}>
-                                            Toggle dark mode for the app
-                                        </div>
-                                    </button>
+                                    <InfoTip content={<span>Toggle dark mode for the app</span>} />
                                 </div>
                             </span>
                             <label className="switch">
@@ -634,11 +708,7 @@ export default function App() {
                             <div className="prefs-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                 <span>Preferred Time: {formatTime(timeRange[0])} - {formatTime(timeRange[1])}</span>
                                 <div className="info-container">
-                                    <button className="info-btn">i
-                                        <div className="info-tooltip" style={{ zIndex: 99999 }}>
-                                            Set the earliest and latest times you prefer your classes to be scheduled.
-                                        </div>
-                                    </button>
+                                    <InfoTip content={<span>Set the earliest and latest times you prefer your classes to be scheduled.</span>} />
                                 </div>
                             </div>
                             <div className="time-slider" style={{ width: '100%', marginTop: '8px' }}>
