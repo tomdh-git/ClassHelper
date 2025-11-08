@@ -1,60 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import InfoTip from "./components/common/InfoTip";
 import { Range } from "react-range";
-import "./App.css";
+import "./styles/index.css";
 import { IoClose, IoChevronUp, IoChevronDown, IoSunny, IoMoon } from "react-icons/io5";
-
-function InfoTip({ content, offset = 8 }) {
-    const btnRef = useRef(null);
-    const [open, setOpen] = useState(false);
-    const [pos, setPos] = useState({ top: 0, left: 0 });
-
-    const update = () => {
-        const el = btnRef.current;
-        if (!el) return;
-        const r = el.getBoundingClientRect();
-        setPos({ top: r.bottom + offset, left: r.left + r.width / 2 });
-    };
-
-    useEffect(() => {
-        if (!open) return;
-        update();
-        const onScroll = () => update();
-        const onResize = () => update();
-        window.addEventListener('scroll', onScroll, true);
-        window.addEventListener('resize', onResize);
-        return () => {
-            window.removeEventListener('scroll', onScroll, true);
-            window.removeEventListener('resize', onResize);
-        };
-    }, [open]);
-
-    return (
-        <>
-            <button
-                ref={btnRef}
-                className="info-btn"
-                onMouseEnter={() => { update(); setTimeout(() => setOpen(true), 0); }}
-                onMouseLeave={() => setOpen(false)}
-                onFocus={() => { update(); setTimeout(() => setOpen(true), 0); }}
-                onBlur={() => setOpen(false)}
-            >
-                i
-            </button>
-            {open && createPortal(
-                <div
-                    className="info-tooltip portal"
-                    style={{ top: pos.top, left: pos.left }}
-                    onMouseEnter={() => setOpen(true)}
-                    onMouseLeave={() => setOpen(false)}
-                >
-                    {content}
-                </div>,
-                document.body
-            )}
-        </>
-    );
-}
 
 const BASE_URL = "https://courseapi-production-3751.up.railway.app";
 const GRAPHQL_URL = `${BASE_URL}/graphql`;
@@ -393,7 +341,7 @@ export default function App() {
                 {/* Header */}
                 <div className="header-bar">
                     <div className="logo-text">
-                        <img src="/logo.png" alt="Logo" className="app-logo" />
+                        <img src={darkMode ? "/assets/img/logo_dark.png" : "/assets/img/logo_light.png"} alt="Logo" className="app-logo" />
                         <h2>ClassHelper V2</h2>
                     </div>
                     <div className="nav-buttons">
@@ -415,7 +363,7 @@ export default function App() {
                                 <div className="title-with-info">
                                     <h3>Schedule Preview</h3>
                                     <div className="info-container">
-                                        <InfoTip content={<span>Visual summary of the currently selected schedule.</span>} />
+<InfoTip isDark={darkMode} content={<span>Visual summary of the currently selected schedule.</span>} />
                                     </div>
                                 </div>
                             </div>
@@ -434,7 +382,7 @@ export default function App() {
                                             <div className="title-with-info">
                                                 <h3>Add Courses</h3>
                                                 <div className="info-container">
-                                                    <InfoTip content={<span>Add courses manually or include filler attributes to auto-search options during generation.</span>} />
+<InfoTip isDark={darkMode} content={<span>Add courses manually or include filler attributes to auto-search options during generation.</span>} />
                                                 </div>
                                             </div>
                                         </div>
@@ -452,7 +400,7 @@ export default function App() {
                                     <div className="subheader-with-info planner-your-courses-header">
                                         <h4>Your Courses</h4>
                                         <div className="info-container">
-                                            <InfoTip content={<span>Items added to your planner. Fillers are placeholders matched by attributes.</span>} />
+<InfoTip isDark={darkMode} content={<span>Items added to your planner. Fillers are placeholders matched by attributes.</span>} />
                                         </div>
                                     </div>
                                     <div className="course-list-container">
@@ -463,11 +411,14 @@ export default function App() {
                                                     <>
                                                         <strong>Filler</strong>
                                                         <div className="info-container">
-                                                            <InfoTip content={course.attrs?.length ? (
+<InfoTip isDark={darkMode} content={course.attrs?.length ? (
                                                                 <div className="tooltip-chip-wrap">
-                                                                    {course.attrs.map((a, idx) => (
+                                                                    {course.attrs.slice(0, 3).map((a, idx) => (
                                                                         <span key={idx} className="attr-chip">{ATTR_LABELS[a] || a}</span>
                                                                     ))}
+                                                                    {course.attrs.length > 3 && (
+                                                                        <span className="attr-chip counter">+{course.attrs.length - 6}</span>
+                                                                    )}
                                                                 </div>
                                                             ) : (<span>No attributes</span>)} />
                                                         </div>
@@ -490,7 +441,7 @@ export default function App() {
                                             <div className="title-with-info">
                                                 <h3>Generated Schedules</h3>
                                                 <div className="info-container">
-                                                    <InfoTip content={<span>Browse the generated schedules one at a time using the arrows.</span>} />
+<InfoTip isDark={darkMode} content={<span>Browse the generated schedules one at a time using the arrows.</span>} />
                                                 </div>
                                             </div>
                                             <button className="panel-back-up-inline" onClick={() => scrollSnapBy(-1)} title="Back to Add Courses">
@@ -548,7 +499,7 @@ export default function App() {
                                                         <div className="label-with-info">
                                                             <label>Search by CRN</label>
                                                             <div className="info-container">
-                                                                <InfoTip content={<span>Enter a numeric CRN (course registration number).</span>} />
+<InfoTip isDark={darkMode} content={<span>Enter a numeric CRN (course registration number).</span>} />
                                                             </div>
                                                         </div>
                                                         <input className="input-box input-dark" placeholder="e.g., 12384" value={crnInput} onChange={(e) => setCrnInput(e.target.value)} />
@@ -560,7 +511,7 @@ export default function App() {
                                                         <div className="label-with-info">
                                                             <label>Search by Course</label>
                                                             <div className="info-container">
-                                                                <InfoTip content={<span>Use format like CSE 381 (subject + number).</span>} />
+<InfoTip isDark={darkMode} content={<span>Use format like CSE 381 (subject + number).</span>} />
                                                             </div>
                                                         </div>
                                                         <input className="input-box input-dark" placeholder="e.g., CSE 381" value={courseSearchInput} onChange={(e) => setCourseSearchInput(e.target.value)} />
@@ -576,7 +527,7 @@ export default function App() {
                                                         <div className="title-with-info">
                                                             <h4>Filler Attributes</h4>
                                                             <div className="info-container">
-                                                                <InfoTip content={<span>Pick attributes to match filler courses during generation.</span>} />
+<InfoTip isDark={darkMode} content={<span>Pick attributes to match filler courses during generation.</span>} />
                                                             </div>
                                                         </div>
                                                         <div className="selected-attrs">
@@ -634,7 +585,7 @@ export default function App() {
                             <span>
                                 Campus
                                 <div className="info-container">
-                                    <InfoTip content={<span>Select one or more campuses. Choosing "All" will ignore other campus filters.</span>} />
+<InfoTip isDark={darkMode} content={<span>Select one or more campuses. Choosing "All" will ignore other campus filters.</span>} />
                                 </div>
                             </span>
                             <div className="choice-group multi">
@@ -659,7 +610,7 @@ export default function App() {
                             <span>
                                 Term
                                 <div className="info-container">
-                                    <InfoTip content={<span>Choose a single academic term.</span>} />
+<InfoTip isDark={darkMode} content={<span>Choose a single academic term.</span>} />
                                 </div>
                             </span>
                             <div className="choice-group single">
@@ -682,7 +633,7 @@ export default function App() {
                             <span>
                                 Optimize Free Time
                                 <div className="info-container">
-                                    <InfoTip content={<span>Attempt to schedule classes with larger gaps in between to give you more free time during the day.</span>} />
+<InfoTip isDark={darkMode} content={<span>Attempt to schedule classes with larger gaps in between to give you more free time during the day.</span>} />
                                 </div>
                             </span>
                             <label className="switch">
@@ -695,7 +646,7 @@ export default function App() {
                             <span>
                                 Dark Mode
                                 <div className="info-container">
-                                    <InfoTip content={<span>Toggle dark mode for the app</span>} />
+<InfoTip isDark={darkMode} content={<span>Toggle dark mode for the app</span>} />
                                 </div>
                             </span>
                             <label className="switch">
@@ -708,7 +659,7 @@ export default function App() {
                             <div className="prefs-label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                                 <span>Preferred Time: {formatTime(timeRange[0])} - {formatTime(timeRange[1])}</span>
                                 <div className="info-container">
-                                    <InfoTip content={<span>Set the earliest and latest times you prefer your classes to be scheduled.</span>} />
+<InfoTip isDark={darkMode} content={<span>Set the earliest and latest times you prefer your classes to be scheduled.</span>} />
                                 </div>
                             </div>
                             <div className="time-slider" style={{ width: '100%', marginTop: '8px' }}>

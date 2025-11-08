@@ -1,0 +1,8 @@
+/* Responsive tweaks */
+@media (max-width: 900px) {
+    .planner-container { flex-direction: column; height: auto; }
+    .left-panel { width: 100%; min-height: 320px; }
+    .right-panel { width: 100%; height: auto; min-height: 320px; }
+    .panel-card { margin: 0; height: auto; min-height: 320px; }
+    .glass-container { height: 90vh; }
+}

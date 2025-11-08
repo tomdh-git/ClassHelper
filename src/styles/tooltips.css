@@ -1,0 +1,89 @@
+/* Info tooltip */
+.label-with-info, .title-with-info, .subheader-with-info { display: inline-flex; align-items: center; gap: 6px; }
+.label-with-info h3, .label-with-info h4, .title-with-info h3, .title-with-info h4, .subheader-with-info h4 { margin: 0; line-height: 1.1; display: inline-block; vertical-align: middle; }
+/* ensure icons align perfectly with text */
+.label-with-info .info-btn, .title-with-info .info-btn, .subheader-with-info .info-btn { position: relative; top: 1px; }
+.info-container { 
+    position: relative; 
+    display: inline-flex;
+    align-items: center;
+}
+
+.info-btn { 
+    width: 22px; 
+    height: 22px; 
+    border-radius: 50%; 
+    background: rgba(0, 0, 0, 0.06);
+    backdrop-filter: blur(10px);
+    color: #1f2937; 
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    cursor: pointer; 
+    font-size: 12px;
+    font-weight: bolder;
+    display: inline-flex; 
+    align-items: center; 
+    justify-content: center; 
+    vertical-align: middle;
+    padding: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.dark-mode .info-btn { background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.16); color: #ffffff; }
+
+.info-btn:hover {
+    background: rgba(0, 0, 0, 0.12);
+    transform: scale(1.1);
+}
+.dark-mode .info-btn:hover { background: rgba(255,255,255,0.18); }
+
+/* Default (legacy) tooltip behavior for inline tooltips */
+.info-tooltip { 
+    position: absolute; 
+    top: 140%; 
+    left: 50%; 
+    transform: translateX(-50%); 
+    width: 240px;
+    padding: 12px 14px; 
+    background: rgba(255,255,255,0.98);
+    backdrop-filter: blur(20px);
+    color: #1f2937; 
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    font-size: 13px; 
+    font-weight: 400;
+    line-height: 1.4;
+    white-space: normal; 
+    opacity: 0; 
+    visibility: hidden; 
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+    z-index: 1000000; /* ensure on top */
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.dark-mode .info-tooltip { background: rgba(24,24,28,0.95); color: #fff !important; border: 1px solid rgba(255,255,255,0.16); }
+.info-container:hover .info-tooltip { 
+    opacity: 1; 
+    visibility: visible;
+    transform: translateX(-50%) translateY(4px);
+}
+
+/* Portal tooltips (rendered to body) */
+.info-tooltip.portal {
+    position: fixed;
+    transform: translateX(-50%);
+    opacity: 1;
+    visibility: visible;
+    z-index: 2147483647; /* top-most */
+    background: rgba(255, 255, 255, 0.98);
+    color: #1f2937;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    width: 320px;
+}
+.info-tooltip.portal.dark {
+    background: rgba(24,24,28,0.95);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.16);
+}
+.info-tooltip.portal .tooltip-chip-wrap { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.info-tooltip.portal .attr-chip { background: #ffffff; color: #1f2937; border: 1px solid rgba(0,0,0,0.08); }
+.info-tooltip.portal.dark .attr-chip { background: rgba(255,255,255,0.1); color: #f5f5f7; border: 1px solid rgba(255,255,255,0.18); }
+.info-tooltip.portal .attr-chip.counter { background: #fff0f0; border: 1px solid #ffd2d2; color: #c1251c; }
+.info-tooltip.portal.dark .attr-chip.counter { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.18); color: #ff7a73; }

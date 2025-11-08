@@ -1,0 +1,9 @@
+/* ---------- Toasts ---------- */
+.toast-container { position: absolute; bottom: 12px; right: 12px; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; z-index: 100000; }
+.toast { padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.06); box-shadow: 0 6px 16px rgba(0,0,0,0.12); color: #c1251c; font-weight: 700; transform: translateY(12px); opacity: 0; animation: toastIn .25s ease forwards; }
+.toast.closing { animation: toastOut .25s ease forwards; }
+@keyframes toastIn { from { transform: translateY(12px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes toastOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(12px); opacity: 0; } }
+.dark-mode .toast { background: rgba(24,24,28,0.9); border: 1px solid rgba(255,255,255,0.16); color: #ffffff; }
+.toast.info { color: #1f2937; }
+.dark-mode .toast.info { color: #ffffff; }
