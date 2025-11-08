@@ -97,6 +97,9 @@ export default function App() {
     };
     const [timeRange, setTimeRange] = useState([8, 18]);
     const [currentIndex, setCurrentIndex] = useState(0);
+    // Toasts and stale-generation indicator
+    const [toasts, setToasts] = useState([]);
+    const [needsRegenerate, setNeedsRegenerate] = useState(false);
     // Color assignment for courses across UI (results chips + visualizer)
     const [courseHues, setCourseHues] = useState({}); // key -> hue (0-360)
 
@@ -273,15 +276,15 @@ export default function App() {
         const fillerAttrUnion = Array.from(new Set(
             courses.filter(c => c.type === 'filler').flatMap(c => c.attrs || [])
         ));
-        const baseTimeLines = optimizeFreeTime ? `preferredStart: "${formatTimeForQuery(timeRange[0])}"
-            preferredEnd: "${formatTimeForQuery(timeRange[1])}"` : "";
+        const baseTimeLines = optimizeFreeTime ? `preferredStart: \"${formatTimeForQuery(timeRange[0])}\"\r
+            preferredEnd: \"${formatTimeForQuery(timeRange[1])}\"` : "";
 
         const buildScheduleQuery = () => `
         query {
           getScheduleByCourses(
-            courses: [${courseVals.map(c => `"${c}"`).join(",")}]
-            campus: [${campus.map(c => `"${c}"`).join(",")}]
-            term: "${term}"
+            courses: [${courseVals.map(c => `\"${c}\"`).join(",")}]
+            campus: [${campus.map(c => `\"${c}\"`).join(",")}]
+            term: \"${term}\"\r
             optimizeFreeTime: ${optimizeFreeTime}
             ${baseTimeLines}
           ) {
@@ -295,10 +298,10 @@ export default function App() {
         const buildFillerQuery = () => `
         query {
           getFillerByAttributes(
-            attributes: [${fillerAttrUnion.map(a => `"${a}"`).join(",")}]
-            courses: [${courseVals.map(c => `"${c}"`).join(",")}]
-            campus: [${campus.map(c => `"${c}"`).join(",")}]
-            term: "${term}"
+            attributes: [${fillerAttrUnion.map(a => `\"${a}\"`).join(",")}]
+            courses: [${courseVals.map(c => `\"${c}\"`).join(",")}]
+            campus: [${campus.map(c => `\"${c}\"`).join(",")}]
+            term: \"${term}\"\r
             ${baseTimeLines}
           ) {
             ... on SuccessSchedule {
@@ -311,21 +314,68 @@ export default function App() {
         const isFillerMode = fillerAttrUnion.length > 0;
         const query = isFillerMode ? buildFillerQuery() : buildScheduleQuery();
 
+        // Helpers to process large result sets
+        const schedKey = (s) => {
+            try {
+                const crns = (s?.courses || []).map(c => String(c?.crn ?? '')).filter(Boolean).sort();
+                return crns.join('_');
+            } catch { return ''; }
+        };
+        const dedupeSchedules = (arr = []) => {
+            const seen = new Set();
+            const out = [];
+            for (const s of arr) {
+                const k = schedKey(s);
+                if (!seen.has(k)) { seen.add(k); out.push(s); }
+            }
+            return out;
+        };
+
         try {
             setLoading(true);
             setNeedsRegenerate(false);
-            const res = await fetch(GRAPHQL_URL, {
+            // First attempt: renderer fetch
+            let res = await fetch(GRAPHQL_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ query }),
             });
-            const data = await res.json();
+            let rawText = await res.text();
+            let data = null;
+            try { data = JSON.parse(rawText); } catch { data = { parseError: true, raw: rawText }; }
             const key = fillerAttrUnion.length > 0 ? 'getFillerByAttributes' : 'getScheduleByCourses';
-            setResult(data.data[key]);
+            let node = data?.data?.[key] || null;
+            let schedulesProc = Array.isArray(node?.schedules) ? node.schedules : [];
+
+            // If HTTP not ok or union is error or 0 schedules, try main-process fetch fallback (Electron only)
+            const shouldFallback = !res.ok || (node && node.error) || schedulesProc.length === 0;
+            if (shouldFallback && window.electronAPI?.graphql) {
+                const mres = await window.electronAPI.graphql(query, GRAPHQL_URL);
+                if (mres?.data) {
+                    data = mres.data;
+                    node = data?.data?.[key] || null;
+                    schedulesProc = Array.isArray(node?.schedules) ? node.schedules : [];
+                }
+            }
+
+            if (schedulesProc.length > 30) {
+                const deduped = dedupeSchedules(schedulesProc);
+                schedulesProc = deduped.length > 10 ? deduped.slice(0, 10) : deduped;
+            }
+            const nodeOut = node ? { ...node, schedules: schedulesProc } : node;
+            setResult(nodeOut);
             setCurrentIndex(0);
-            // Assign hues for courses across all schedules for stable colors
+
+            if (!Array.isArray(schedulesProc) || schedulesProc.length === 0) {
+                const msg = node?.message || (Array.isArray(data?.errors) ? data.errors.map(e => e.message).join('; ') : 'No schedules returned');
+                notify(`Generate: ${msg}`, 'error', 6000);
+            }
+
+            // Update baseline to current prefs on successful generate
+            baselinePrefsRef.current = { ...snapshotPrefs() };
+            // Assign hues for courses across processed schedules for stable colors
             try {
-                const allCourses = (data.data[key]?.schedules || []).flatMap(s => s.courses || []);
+                const allCourses = (schedulesProc || []).flatMap(s => s.courses || []);
                 setCourseHues(prev => {
                     const next = { ...prev };
                     for (const c of allCourses) {
@@ -337,8 +387,9 @@ export default function App() {
             } catch {}
             // Auto-jump to the Generated Schedules card (slightly delayed for smoother layout)
             setTimeout(() => scrollSnapBy(1), 140);
-        } catch {
+        } catch (e) {
             setLastError("Failed to fetch");
+            notify(`Generate error: ${String(e && e.message || e)}`, 'error', 6000);
         } finally {
             setLoading(false);
         }
@@ -478,17 +529,64 @@ export default function App() {
         animateScrollTo(el, target, 750);
     };
 
+    // Fade-out chips on results navigation
+    const [chipsFading, setChipsFading] = useState(false);
+    const navResults = (delta) => {
+        setChipsFading(true);
+        setCurrentIndex(i => {
+            const max = Math.max(0, (result?.schedules?.length || 0) - 1);
+            const next = Math.min(Math.max(i + delta, 0), max);
+            return next;
+        });
+        // Clear fading state after the slide transition
+        setTimeout(() => setChipsFading(false), 280);
+    };
+
     // Search snap
     const searchSnapRef = useRef(null);
     // ---------------- Config persistence ----------------
     const CONFIG_KEY = 'classhelperConfig:v1';
 
-    // Load on startup
-    useEffect(() => {
+    const readConfigBridge = async () => {
+        if (typeof window !== 'undefined' && window.electronAPI?.readConfig) {
+            try { return await window.electronAPI.readConfig(); } catch {}
+        }
         try {
             const raw = localStorage.getItem(CONFIG_KEY);
-            if (!raw) return;
-            const cfg = JSON.parse(raw);
+            return raw ? JSON.parse(raw) : null;
+        } catch { return null; }
+    };
+
+    const writeConfigBridge = async (cfg) => {
+        if (typeof window !== 'undefined' && window.electronAPI?.writeConfig) {
+            try { await window.electronAPI.writeConfig(cfg); return; } catch {}
+        }
+        try { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); } catch {}
+    };
+
+    const hydratedRef = useRef(false);
+    const baselinePrefsRef = useRef({ campus, term, optimizeFreeTime, timeRange });
+
+    const snapshotPrefs = () => ({ campus, term, optimizeFreeTime, timeRange });
+    const sameArrayUnordered = (a = [], b = []) => {
+        if (!Array.isArray(a) || !Array.isArray(b)) return false;
+        if (a.length !== b.length) return false;
+        const sa = [...a].sort();
+        const sb = [...b].sort();
+        for (let i = 0; i < sa.length; i++) if (sa[i] !== sb[i]) return false;
+        return true;
+    };
+    const prefsChangedFromBaseline = () => {
+        const cur = snapshotPrefs();
+        const base = baselinePrefsRef.current || {};
+        const campusChanged = !sameArrayUnordered(cur.campus, base.campus);
+        return campusChanged || cur.term !== base.term || cur.optimizeFreeTime !== base.optimizeFreeTime || cur.timeRange?.[0] !== base.timeRange?.[0] || cur.timeRange?.[1] !== base.timeRange?.[1];
+    };
+
+    // Load on startup
+    useEffect(() => {
+        (async () => {
+            const cfg = await readConfigBridge();
             if (cfg && typeof cfg === 'object') {
                 if (Array.isArray(cfg.campus)) setCampus(cfg.campus);
                 if (typeof cfg.term === 'string') setTerm(cfg.term);
@@ -498,41 +596,74 @@ export default function App() {
                 if (Array.isArray(cfg.courses)) setCourses(cfg.courses);
                 if (Array.isArray(cfg.fillerAttrs)) setFillerAttrs(cfg.fillerAttrs);
                 if (typeof cfg.activePage === 'string') setActivePage(cfg.activePage);
+                baselinePrefsRef.current = {
+                    campus: Array.isArray(cfg.campus) ? cfg.campus : campus,
+                    term: typeof cfg.term === 'string' ? cfg.term : term,
+                    optimizeFreeTime: typeof cfg.optimizeFreeTime === 'boolean' ? cfg.optimizeFreeTime : optimizeFreeTime,
+                    timeRange: Array.isArray(cfg.timeRange) ? cfg.timeRange : timeRange,
+                };
+            } else {
+                // create default config
+                const defaults = {
+                    campus,
+                    term,
+                    optimizeFreeTime,
+                    darkMode,
+                    timeRange,
+                    courses,
+                    fillerAttrs,
+                    activePage,
+                };
+                await writeConfigBridge(defaults);
+                baselinePrefsRef.current = { campus, term, optimizeFreeTime, timeRange };
             }
-        } catch {}
+            hydratedRef.current = true;
+        })();
     }, []);
 
     // Save whenever relevant state changes
+
+    // Sync root html class with state and remove preload style once ready
     useEffect(() => {
+        const root = document.documentElement;
+        if (darkMode) root.classList.add('dark-mode'); else root.classList.remove('dark-mode');
+        const s = document.getElementById('preload-theme-style');
+        if (s) s.remove();
+    }, [darkMode]);
+
+    // Save whenever relevant state changes (after hydration)
+    const prevCfgRef = useRef(null);
+    useEffect(() => {
+        if (!hydratedRef.current) return;
         const cfg = { campus, term, optimizeFreeTime, darkMode, timeRange, courses, fillerAttrs, activePage };
-        try { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); } catch {}
+        const prev = prevCfgRef.current ? JSON.stringify(prevCfgRef.current) : null;
+        const cur = JSON.stringify(cfg);
+        if (prev !== cur) {
+            prevCfgRef.current = cfg;
+            writeConfigBridge(cfg);
+        }
     }, [campus, term, optimizeFreeTime, darkMode, timeRange, courses, fillerAttrs, activePage]);
 
-    // Mark schedules stale when preferences that affect generation change
-    useEffect(() => {
-        // preferences affecting generation
-        setNeedsRegenerate(true);
-        // If user is in prefs, bring them to Planner first card and scroll to top of snap
-        if (activePage === 'prefs') {
-            startPageTransition('planner');
-            // smooth scroll to top of planner snap after transition
-            setTimeout(() => {
-                const el = snapScrollRef.current;
-                if (el) animateScrollTo(el, 0, 700);
-            }, 260);
-        } else if (activePage === 'planner') {
-            const el = snapScrollRef.current;
-            if (el) animateScrollTo(el, 0, 700);
-        }
-    }, [campus, term, optimizeFreeTime, timeRange]);
+    // (Removed proactive dirtying/snapping; we now decide only on Planner nav)
 
     const startPageTransition = (target) => {
         if (target === activePage || animOut || animIn) return;
+        const plannerChanged = target === 'planner' && prefsChangedFromBaseline();
         setAnimOut(true);
         setTimeout(() => {
             setActivePage(target);
             setAnimOut(false);
             setAnimIn(true);
+            // Only mark and snap if user navigates to Planner and we are sure it's changed
+            if (target === 'planner') {
+                setNeedsRegenerate(!!plannerChanged);
+                if (plannerChanged) {
+                    setTimeout(() => {
+                        const el = snapScrollRef.current;
+                        if (el) animateScrollTo(el, 0, 700);
+                    }, 220);
+                }
+            }
             setTimeout(() => setAnimIn(false), 220);
         }, 180);
     };
@@ -544,9 +675,7 @@ export default function App() {
         animateScrollTo(el, target, 750);
     };
 
-    // Toast notifications
-    const [toasts, setToasts] = useState([]);
-    const [needsRegenerate, setNeedsRegenerate] = useState(false);
+// Toast notifications
     const notify = (message, type = "error", ttl = 3500) => {
         const id = Date.now() + Math.random();
         setToasts(prev => [...prev, { id, type, message, closing: false }]);
@@ -568,15 +697,18 @@ export default function App() {
                 {/* Header */}
                 <div className="header-bar">
                     <div className="logo-text">
-                        <img src={darkMode ? "/assets/img/logo_dark.png" : "/assets/img/logo_light.png"} alt="Logo" className="app-logo" />
+                        <img src={`${process.env.PUBLIC_URL}/assets/img/${darkMode ? 'logo_dark.png' : 'logo_light.png'}`} alt="Logo" className="app-logo" />
                         <h2>ClassHelper V2</h2>
                     </div>
                     <div className="nav-buttons">
                         <button onClick={() => startPageTransition("planner")} className={activePage === "planner" ? "active" : ""}>Planner</button>
                         <button onClick={() => startPageTransition("search")} className={activePage === "search" ? "active" : ""}>Search</button>
                         <button onClick={() => startPageTransition("prefs")} className={activePage === "prefs" ? "active" : ""}>Preferences</button>
-                        <button className="dark-btn" onClick={toggleTheme}>
+                        <button className="dark-btn" onClick={toggleTheme} title="Toggle dark mode">
                             {darkMode ? <IoSunny /> : <IoMoon />}
+                        </button>
+                        <button className="close-btn" onClick={() => { if (window.electronAPI?.closeApp) { window.electronAPI.closeApp(); } else { window.close(); } }} title="Close">
+                            <span style={{ fontWeight: 900 }}>×</span>
                         </button>
                     </div>
                     {loading && <div className="loading-inline"><div className="loading-progress"></div></div>}
@@ -736,7 +868,7 @@ export default function App() {
                                         {result?.schedules?.length > 0 ? (
                                             <div className="results-card">
                                                 <div className="result-viewport">
-                                                    <div className="result-window">
+                                                    <div className={`result-window ${chipsFading ? 'chips-fade' : ''}`}>
                                                         <div className="result-slider" style={{ height: `${result.schedules.length * 100}%`, transform: `translateY(-${(100 / result.schedules.length) * currentIndex}%)` }}>
                                                             {result.schedules.map((sched, idx) => (
                                                                 <div key={idx} className="result-slide" style={{ height: `${100 / result.schedules.length}%` }}>
@@ -760,11 +892,11 @@ export default function App() {
                                                     </div>
                                                 </div>
                                                 <div className="results-nav">
-                                                    <button onClick={() => setCurrentIndex(i => Math.max(i - 1, 0))} disabled={currentIndex === 0}>
+                                                    <button onClick={() => navResults(-1)} disabled={currentIndex === 0}>
                                                         <IoChevronUp />
                                                     </button>
                                                     <div className="results-count">{(currentIndex + 1)} / {result.schedules.length}</div>
-                                                    <button onClick={() => setCurrentIndex(i => Math.min(i + 1, result.schedules.length - 1))} disabled={currentIndex === result.schedules.length - 1}>
+                                                    <button onClick={() => navResults(1)} disabled={currentIndex === result.schedules.length - 1}>
                                                         <IoChevronDown />
                                                     </button>
                                                 </div>

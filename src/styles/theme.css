@@ -1,52 +1,24 @@
 /* ---------- App wrapper & dark mode ---------- */
+html, body, .app-wrapper {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
+    -webkit-text-size-adjust: 100%;
+}
 .app-wrapper {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 20px;
+    padding: 0;
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: transparent !important;
     box-sizing: border-box;
     position: relative;
     overflow: hidden;
 }
 
-.app-wrapper::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle at 30% 50%, rgba(138, 43, 226, 0.3), transparent 50%),
-                radial-gradient(circle at 70% 80%, rgba(72, 61, 139, 0.3), transparent 50%);
-    animation: gradient-shift 15s ease infinite;
-    z-index: 0;
-}
-
-@keyframes gradient-shift {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(10%, 10%); }
-}
-
-/* Light theme: red liquid-glass gradient background */
-.app-wrapper {
-    background: linear-gradient(135deg, #ff7f7f 0%, #ff3b30 100%);
-}
-
-.app-wrapper::before {
-    background: radial-gradient(circle at 30% 50%, rgba(255, 59, 48, 0.06), transparent 45%),
-                radial-gradient(circle at 70% 80%, rgba(255, 255,  255, 0.4), transparent 40%);
-}
-
-.dark-mode .app-wrapper {
-    background: linear-gradient(135deg, #121212 0%, #1c1c1c 100%);
-}
-
-.dark-mode .app-wrapper::before {
-    background: radial-gradient(circle at 30% 50%, rgba(255, 59, 48, 0.09), transparent 45%),
-                radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.06), transparent 40%);
-}
+/* Remove animated background layers when using transparent window */
+.app-wrapper::before { content: none !important; }
 
 .app-wrapper .glass-container { box-sizing: border-box; position: relative; z-index: 1; }
 

@@ -2,6 +2,7 @@
   "name": "classhelper",
   "version": "0.1.0",
   "private": true,
+  "homepage": "./",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -19,12 +20,14 @@
   "main": "public/electron.js",
   "build": {
     "appId": "com.classhelper.app",
+    "asar": true,
     "files": [
       "build/**/*",
-      "public/electron.js"
+      "public/electron.js",
+      "public/preload.js"
     ],
     "win": {
-      "target": "nsis"
+      "target": "portable"
     }
   },
   "scripts": {
@@ -33,8 +36,8 @@
     "eject": "react-scripts eject",
     "react-start": "react-scripts start",
     "electron-start": "concurrently \"npm run react-start\" \"wait-on http://localhost:3000 && electron .\"",
-    "build": "react-scripts build",
-    "dist": "electron-builder"
+    "build": "react-scripts build && node scripts/postbuild.cjs",
+    "dist": "npm run build && electron-builder"
   },
   "eslintConfig": {
     "extends": [
