@@ -113,7 +113,7 @@
 .dark-mode .nav-buttons button.active {
     background: rgba(255, 255, 255, 0.14);
     border: 1px solid rgba(255, 255, 255, 0.22);
-    color: #ff7a73 !important;
+    color: #ff938c !important;
 }
 
 .nav-buttons button:hover {
@@ -139,7 +139,7 @@
 }
 
 .dark-mode .nav-buttons button.active {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(189, 189, 189, 0.2);
 }
 
 .dark-btn {
@@ -162,6 +162,13 @@
     background: rgba(255, 255, 255, 0.25);
     transform: scale(1.1);
 }
+
+/* ---------- Page switch animations ---------- */
+.page-anim { will-change: transform, opacity; }
+.page-anim.anim-in { animation: pageIn 220ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+.page-anim.anim-out { animation: pageOut 180ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+@keyframes pageIn { from { opacity: 0; transform: translateY(8px) scale(0.995); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes pageOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-6px) scale(0.995); } }
 
 /* ---------- Loading bar ---------- */
 .loading-inline {

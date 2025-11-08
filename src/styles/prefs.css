@@ -1,6 +1,6 @@
 /* ---------- Preferences page styles ---------- */
 .prefs-panel { 
-    padding: 24px; 
+    padding: 0 24px 24px; 
     width: 100%;
     max-width: none;
     margin: 0 auto;

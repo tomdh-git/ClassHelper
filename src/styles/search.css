@@ -6,7 +6,7 @@
 .search-subcard .input-box { margin-top: 12px; margin-bottom: 12px; }
 .search-subcard .btn-row { margin-top: 12px; }
 .search-subcard .btn-row.compact { margin-top: 12px; }
-.search-page { display: flex; flex-direction: column; gap: 16px; padding: 8px 0; flex: 1 1 auto; min-height: 0; }
+.search-page { display: flex; flex-direction: column; gap: 16px; padding: 0; flex: 1 1 auto; min-height: 0; }
 .search-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .search-card { background: rgba(255,255,255,0.96); border: 1px solid rgba(0,0,0,0.12); background-clip: padding-box; border-radius: 16px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .search-first-grid { display: grid; grid-template-columns: 0.25fr 0.75fr; grid-template-rows: 1fr; gap: 16px; height: 100%; align-items: stretch; }
@@ -32,7 +32,7 @@
 .dark-mode .search-card { background: rgba(24,24,28,0.78); border: 1px solid rgba(255,255,255,0.22); box-shadow: 0 2px 10px rgba(0,0,0,0.4); }
 .search-results h4 { margin: 8px 0; }
 .search-page .snap-container { flex: 1 1 auto; min-height: 0; }
-.search-snap { --card-gap: 12px; height: 100%; overflow-y: auto; scroll-snap-type: y mandatory; }
+.search-snap { --card-gap: 12px; height: 100%; overflow-y: auto; scroll-snap-type: y mandatory; scroll-snap-stop: always; }
 .search-snap .search-panel { scroll-snap-align: start; flex: 0 0 auto; height: 100%; margin: 0 0 var(--card-gap) 0; display: flex; flex-direction: column; }
 .search-panel-body { flex: 1 1 auto; min-height: 0; overflow: visible; padding: 0; display: flex; }
 .search-panel-body > .search-first-grid { flex: 1 1 auto; min-height: 0; }

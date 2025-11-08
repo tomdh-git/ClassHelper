@@ -47,6 +47,7 @@
     height: 100%;
     overflow-y: scroll;
     scroll-snap-type: y mandatory;
+    scroll-snap-stop: always;
     padding: 0;
     box-sizing: border-box;
     scrollbar-width: none; /* hide Firefox scrollbar */
@@ -164,3 +165,22 @@
 .dark-mode .course-item.filler { background: rgba(255,99,71,0.15); border: 1px solid rgba(255,255,255,0.18); }
 .dark-mode .course-item.filler .info-btn { background: rgba(255,255,255,0.12); color: #ffffff; border: 1px solid rgba(255,255,255,0.16); }
 .dark-mode .course-item.filler .info-tooltip { background: rgba(24,24,28,0.95); color: #fff; border: 1px solid rgba(255,255,255,0.16); }
+
+/* Schedule visualizer */
+.schedule-week { display: flex; flex-direction: column; gap: 8px; height: 100%; width: 100%; }
+.day-label-row { display: grid; grid-template-columns: 60px repeat(5, 1fr); gap: 8px; padding: 0 6px; }
+.day-label { text-align: center; font-weight: 700; opacity: 0.9; }
+.time-spacer { }
+.schedule-grid { display: grid; grid-template-columns: 60px repeat(5, 1fr); gap: 8px; height: 100%; width: 100%; }
+.time-col { position: relative; border-right: 1px dashed rgba(0,0,0,0.1); }
+.dark-mode .time-col { border-right-color: rgba(255,255,255,0.16); }
+.time-tick { position: absolute; left: 0; width: 100%; border-top: 1px dashed rgba(0,0,0,0.08); }
+.time-tick span { position: absolute; left: 0; transform: translateY(-50%); font-size: 12px; color: rgba(0,0,0,0.6); }
+.dark-mode .time-tick { border-top-color: rgba(255,255,255,0.12); }
+.dark-mode .time-tick span { color: rgba(255,255,255,0.75); }
+ .day-col { position: relative; height: 100%; background: rgba(255,255,255,0.55); border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; overflow: hidden; }
+.dark-mode .day-col { background: rgba(24,24,28,0.4); border: 1px solid rgba(255,255,255,0.12); }
+.event-block { position: absolute; left: 6px; right: 6px; border-radius: 12px; background: var(--ev-bg); border: 1px solid var(--ev-border); color: var(--ev-fg); box-shadow: 0 6px 16px rgba(0,0,0,0.12); padding: 6px 8px; display: flex; flex-direction: column; justify-content: center; gap: 2px; box-sizing: border-box; min-height: 18px; will-change: transform, opacity; animation: evIn 320ms cubic-bezier(0.4,0,0.2,1) both; animation-delay: var(--ev-delay, 0ms); }
+.event-title { font-weight: 800; font-size: 0.85rem; letter-spacing: 0.2px; }
+ .event-time { font-size: 0.75rem; opacity: 0.9; }
+@keyframes evIn { from { opacity: 0; transform: translateY(6px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }

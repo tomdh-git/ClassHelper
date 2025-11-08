@@ -69,9 +69,8 @@
     color: #ff7a73;
 }
 
-.results-card button:hover:not(:disabled) {
-    transform: scale(1.06);
-}
+.results-card button:hover:not(:disabled) { transform: scale(1.06); }
+.results-count { font-weight: 800; opacity: 0.85; min-width: 80px; text-align: center; }
 
 .results-card button:disabled {
     opacity: 0.3;
@@ -151,20 +150,34 @@
 .course-chip {
     padding: 8px 12px;
     border-radius: 999px;
-    background: #fff;
-    border: 1px solid rgba(0,0,0,0.1);
+    background: var(--chip-bg, #fff);
+    border: 1px solid var(--chip-border, rgba(0,0,0,0.1));
     box-shadow: 0 4px 12px rgba(0,0,0,0.06);
     font-weight: 700;
     font-size: 0.9rem;
-    color: #1f2937;
+    color: var(--chip-fg, #1f2937);
     white-space: nowrap;
+    will-change: transform, background-color, border-color, color;
+    transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1), background-color 220ms ease, border-color 220ms ease, color 220ms ease;
+    animation: chipIn 320ms cubic-bezier(0.4, 0, 0.2, 1) both;
+    animation-delay: var(--chip-delay, 0ms);
 }
+.course-chip.dot { width: 14px; height: 14px; min-width: 14px; padding: 0; border-radius: 50%; display: inline-block; }
+.course-chip:hover { transform: translateY(-1px) scale(1.02); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
 .dark-mode .course-chip {
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.18);
-    color: #f5f5f7;
+    background: var(--chip-bg, rgba(255,255,255,0.1));
+    border: 1px solid var(--chip-border, rgba(255,255,255,0.18));
+    color: var(--chip-fg, #f5f5f7);
 }
+@keyframes chipIn { from { opacity: 0; transform: translateY(4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 
+/* Legend below chips */
+.course-legend { display: grid; grid-auto-rows: minmax(20px, auto); gap: 4px; margin-top: 8px; }
+.course-row { display: inline-flex; align-items: center; gap: 8px; }
+.course-label { font-weight: 700; font-size: 0.95rem; }
+.legend-web { font-weight: 700; opacity: 0.85; }
+
+.chip-sub { margin-left: 6px; font-weight: 700; opacity: 0.85; font-size: 0.8rem; }
 .free-time {
     margin-top: 10px;
     opacity: 0.8;

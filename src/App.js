@@ -9,7 +9,9 @@ const GRAPHQL_URL = `${BASE_URL}/graphql`;
 const ALIVE_URL = `${BASE_URL}/alive`;
 
 export default function App() {
-    const [page, setPage] = useState("planner");
+    const [activePage, setActivePage] = useState("planner");
+    const [animOut, setAnimOut] = useState(false);
+    const [animIn, setAnimIn] = useState(false);
     const [courses, setCourses] = useState([{ value: "CSE 374", valid: true }]);
     const [input, setInput] = useState("");
     const [result, setResult] = useState(null);
@@ -72,8 +74,137 @@ export default function App() {
     const [term, setTerm] = useState("202620");
     const [optimizeFreeTime, setOptimizeFreeTime] = useState(true);
     const [darkMode, setDarkMode] = useState(false);
+    const appRef = useRef(null);
+
+    const toggleTheme = () => {
+        const root = appRef.current;
+        if (!root) { setDarkMode(!darkMode); return; }
+        const maxDelay = 280; // ms
+        const rootRect = root.getBoundingClientRect();
+        const nodes = root.querySelectorAll('*');
+        nodes.forEach((el) => {
+            const r = el.getBoundingClientRect();
+            const rel = Math.max(0, Math.min(1, (r.top - rootRect.top) / Math.max(1, rootRect.height)));
+            const delay = rel * maxDelay;
+            el.style.setProperty('--theme-delay', `${delay}ms`);
+        });
+        root.classList.add('theme-stagger');
+        setDarkMode(!darkMode);
+        setTimeout(() => {
+            nodes.forEach((el) => el.style.removeProperty('--theme-delay'));
+            root.classList.remove('theme-stagger');
+        }, maxDelay + 400);
+    };
     const [timeRange, setTimeRange] = useState([8, 18]);
     const [currentIndex, setCurrentIndex] = useState(0);
+    // Color assignment for courses across UI (results chips + visualizer)
+    const [courseHues, setCourseHues] = useState({}); // key -> hue (0-360)
+
+    const courseKey = (c) => `${c.subject || ''}-${c.courseNum || ''}-${c.crn || ''}`;
+    const hashHue = (str) => {
+        let h = 0;
+        for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+        return h % 360;
+    };
+    const hueForCourse = (c) => {
+        const key = courseKey(c);
+        return courseHues[key] ?? 200; // default hue
+    };
+    const chipStyleForHue = (h) => {
+        if (darkMode) {
+            return {
+                '--chip-bg': `hsla(${h}, 70%, 18%, 0.65)`,
+                '--chip-border': `hsla(${h}, 80%, 58%, 0.5)`,
+                '--chip-fg': '#f5f5f7',
+            };
+        }
+        return {
+            '--chip-bg': `hsla(${h}, 95%, 95%, 1)`,
+            '--chip-border': `hsla(${h}, 70%, 70%, 0.8)`,
+            '--chip-fg': '#1f2937',
+        };
+    };
+    const eventStyleForHue = (h) => {
+        if (darkMode) {
+            return {
+                '--ev-bg': `hsla(${h}, 70%, 45%, 0.28)`,
+                '--ev-border': `hsla(${h}, 80%, 60%, 0.55)`,
+                '--ev-fg': '#ffffff',
+            };
+        }
+        return {
+            '--ev-bg': `hsla(${h}, 90%, 65%, 0.20)`,
+            '--ev-border': `hsla(${h}, 85%, 55%, 0.5)`,
+            '--ev-fg': '#1f2937',
+        };
+    };
+
+    // Extract meeting times from a course node (supports multiple shapes)
+    const dayCodeToName = (d) => ({ 'M': 'Mon', 'T': 'Tue', 'W': 'Wed', 'R': 'Thu', 'Th': 'Thu', 'H': 'Thu', 'F': 'Fri', 'S': 'Sat', 'U': 'Sun' }[d] || d);
+    const parseTimeStr = (s) => {
+        if (!s) return null;
+        const str = String(s).trim().toLowerCase();
+        const m = str.match(/^\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m)?\s*$/);
+        if (!m) return null;
+        let hr = parseInt(m[1], 10);
+        const min = m[2] ? parseInt(m[2], 10) : 0;
+        const ap = m[3];
+        if (ap) {
+            if (ap === 'pm' && hr < 12) hr += 12;
+            if (ap === 'am' && hr === 12) hr = 0;
+        }
+        if (!ap && hr <= 24 && min <= 59) {
+            // assume 24h
+        }
+        return hr * 60 + min;
+    };
+    const expandDays = (daysStr) => {
+        if (!daysStr) return [];
+        const s = String(daysStr);
+        // Handle "Th" specially, replace with R token then process chars
+        const replaced = s.replace(/Th/gi, 'R');
+        return Array.from(replaced).map(dayCodeToName);
+    };
+    const extractMeetings = (c) => {
+        if (!c) return [];
+        if (Array.isArray(c.meetings)) {
+            return c.meetings.map(m => ({ day: dayCodeToName(m.day || m.d || m.D), start: parseTimeStr(m.start || m.s), end: parseTimeStr(m.end || m.e) }))
+                .filter(m => Number.isFinite(m.start) && Number.isFinite(m.end));
+        }
+        const days = c.days || c.meetingDays || c.DayPattern;
+        const start = c.start || c.startTime || c.timeStart;
+        const end = c.end || c.endTime || c.timeEnd;
+        if (days && (start || end)) {
+            const startMin = parseTimeStr(start);
+            const endMin = parseTimeStr(end);
+            if (!Number.isFinite(startMin) || !Number.isFinite(endMin)) return [];
+            return expandDays(days).map(d => ({ day: d, start: startMin, end: endMin }));
+        }
+        // Try to parse from delivery string like: "MW 10:30am-12:30pm WEB 01/02 - 01/16" or "WEB 01/02 - 01/23"
+        const delivery = c.delivery || c.Delivery || '';
+        const dlc = String(delivery).trim();
+        const dm = dlc.match(/^\s*([MTWRFSU]+)/i);
+        const tm = dlc.match(/(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*-\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m)/i);
+        if (dm && tm) {
+            const dpat = dm[1].toUpperCase();
+            const s = `${tm[1]}${tm[2] ? ':'+tm[2] : ''}${tm[3].toLowerCase()}`;
+            const e = `${tm[4]}${tm[5] ? ':'+tm[5] : ''}${tm[6].toLowerCase()}`;
+            const startMin = parseTimeStr(s);
+            const endMin = parseTimeStr(e);
+            if (Number.isFinite(startMin) && Number.isFinite(endMin)) {
+                return expandDays(dpat).map(d => ({ day: d, start: startMin, end: endMin }));
+            }
+        }
+        return [];
+    };
+
+    const parseDeliveryDays = (s) => {
+        if (!s) return null;
+        const lc = String(s).trim().toLowerCase();
+        if (/\bweb\b/.test(lc) && !/^\s*[mtwrfsu]+\b/.test(lc)) return 'WEB';
+        const m = lc.match(/^\s*([mtwrfsu]+)\b/);
+        return m ? m[1].toUpperCase() : null;
+    };
 
     // Snap scroll indicators for right panel
     const snapScrollRef = useRef(null);
@@ -155,7 +286,7 @@ export default function App() {
             ${baseTimeLines}
           ) {
             ... on SuccessSchedule {
-              schedules { courses { subject courseNum crn } ${freeTimeFields} }
+              schedules { courses { subject courseNum crn delivery } ${freeTimeFields} }
             }
             ... on ErrorSchedule { error message }
           }
@@ -182,6 +313,7 @@ export default function App() {
 
         try {
             setLoading(true);
+            setNeedsRegenerate(false);
             const res = await fetch(GRAPHQL_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -191,8 +323,20 @@ export default function App() {
             const key = fillerAttrUnion.length > 0 ? 'getFillerByAttributes' : 'getScheduleByCourses';
             setResult(data.data[key]);
             setCurrentIndex(0);
-            // Auto-jump to the Generated Schedules card
-            setTimeout(() => scrollSnapBy(1), 0);
+            // Assign hues for courses across all schedules for stable colors
+            try {
+                const allCourses = (data.data[key]?.schedules || []).flatMap(s => s.courses || []);
+                setCourseHues(prev => {
+                    const next = { ...prev };
+                    for (const c of allCourses) {
+                        const k = courseKey(c);
+                        if (!(k in next)) next[k] = hashHue(k);
+                    }
+                    return next;
+                });
+            } catch {}
+            // Auto-jump to the Generated Schedules card (slightly delayed for smoother layout)
+            setTimeout(() => scrollSnapBy(1), 140);
         } catch {
             setLastError("Failed to fetch");
         } finally {
@@ -304,22 +448,105 @@ export default function App() {
         };
     }, []);
 
+    // Smooth scroll helper with slower, smoother easing
+    const animateScrollTo = (el, to, duration = 750) => {
+        const start = el.scrollTop;
+        const change = to - start;
+        const startTime = performance.now();
+        // EaseInOutQuint for a very smooth start/end
+        const easeInOutQuint = (t) => t < 0.5
+            ? 16 * t * t * t * t * t
+            : 1 - Math.pow(-2 * t + 2, 5) / 2;
+        // Scale duration a bit by distance (up to 1.6x for 2 viewport heights)
+        const base = Math.max(500, duration);
+        const ratio = Math.min(2, Math.abs(change) / Math.max(1, el.clientHeight));
+        const dur = Math.min(1200, base * ratio);
+        const step = (now) => {
+            const elapsed = now - startTime;
+            const p = Math.min(1, elapsed / dur);
+            const eased = easeInOutQuint(p);
+            el.scrollTop = start + change * eased;
+            if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+    };
+
     const scrollSnapBy = (dir) => {
         const el = snapScrollRef.current;
         if (!el) return;
-        el.scrollBy({ top: dir * el.clientHeight, behavior: 'smooth' });
+        const target = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, el.scrollTop + dir * el.clientHeight));
+        animateScrollTo(el, target, 750);
     };
 
     // Search snap
     const searchSnapRef = useRef(null);
+    // ---------------- Config persistence ----------------
+    const CONFIG_KEY = 'classhelperConfig:v1';
+
+    // Load on startup
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(CONFIG_KEY);
+            if (!raw) return;
+            const cfg = JSON.parse(raw);
+            if (cfg && typeof cfg === 'object') {
+                if (Array.isArray(cfg.campus)) setCampus(cfg.campus);
+                if (typeof cfg.term === 'string') setTerm(cfg.term);
+                if (typeof cfg.optimizeFreeTime === 'boolean') setOptimizeFreeTime(cfg.optimizeFreeTime);
+                if (typeof cfg.darkMode === 'boolean') setDarkMode(cfg.darkMode);
+                if (Array.isArray(cfg.timeRange) && cfg.timeRange.length === 2) setTimeRange(cfg.timeRange);
+                if (Array.isArray(cfg.courses)) setCourses(cfg.courses);
+                if (Array.isArray(cfg.fillerAttrs)) setFillerAttrs(cfg.fillerAttrs);
+                if (typeof cfg.activePage === 'string') setActivePage(cfg.activePage);
+            }
+        } catch {}
+    }, []);
+
+    // Save whenever relevant state changes
+    useEffect(() => {
+        const cfg = { campus, term, optimizeFreeTime, darkMode, timeRange, courses, fillerAttrs, activePage };
+        try { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); } catch {}
+    }, [campus, term, optimizeFreeTime, darkMode, timeRange, courses, fillerAttrs, activePage]);
+
+    // Mark schedules stale when preferences that affect generation change
+    useEffect(() => {
+        // preferences affecting generation
+        setNeedsRegenerate(true);
+        // If user is in prefs, bring them to Planner first card and scroll to top of snap
+        if (activePage === 'prefs') {
+            startPageTransition('planner');
+            // smooth scroll to top of planner snap after transition
+            setTimeout(() => {
+                const el = snapScrollRef.current;
+                if (el) animateScrollTo(el, 0, 700);
+            }, 260);
+        } else if (activePage === 'planner') {
+            const el = snapScrollRef.current;
+            if (el) animateScrollTo(el, 0, 700);
+        }
+    }, [campus, term, optimizeFreeTime, timeRange]);
+
+    const startPageTransition = (target) => {
+        if (target === activePage || animOut || animIn) return;
+        setAnimOut(true);
+        setTimeout(() => {
+            setActivePage(target);
+            setAnimOut(false);
+            setAnimIn(true);
+            setTimeout(() => setAnimIn(false), 220);
+        }, 180);
+    };
+
     const searchScrollSnapBy = (dir) => {
         const el = searchSnapRef.current;
         if (!el) return;
-        el.scrollBy({ top: dir * el.clientHeight, behavior: 'smooth' });
+        const target = Math.max(0, Math.min(el.scrollHeight - el.clientHeight, el.scrollTop + dir * el.clientHeight));
+        animateScrollTo(el, target, 750);
     };
 
     // Toast notifications
     const [toasts, setToasts] = useState([]);
+    const [needsRegenerate, setNeedsRegenerate] = useState(false);
     const notify = (message, type = "error", ttl = 3500) => {
         const id = Date.now() + Math.random();
         setToasts(prev => [...prev, { id, type, message, closing: false }]);
@@ -331,7 +558,7 @@ export default function App() {
     };
 
     return (
-        <div className={`app-wrapper ${darkMode ? "dark-mode" : ""}`}>
+        <div ref={appRef} className={`app-wrapper ${darkMode ? "dark-mode" : ""}`}>
             <div className="glass-container">
                 <div className="toast-container">
 {toasts.map(t => (
@@ -345,18 +572,18 @@ export default function App() {
                         <h2>ClassHelper V2</h2>
                     </div>
                     <div className="nav-buttons">
-                        <button onClick={() => setPage("planner")} className={page === "planner" ? "active" : ""}>Planner</button>
-                        <button onClick={() => setPage("search")} className={page === "search" ? "active" : ""}>Search</button>
-                        <button onClick={() => setPage("prefs")} className={page === "prefs" ? "active" : ""}>Preferences</button>
-                        <button className="dark-btn" onClick={() => setDarkMode(!darkMode)}>
+                        <button onClick={() => startPageTransition("planner")} className={activePage === "planner" ? "active" : ""}>Planner</button>
+                        <button onClick={() => startPageTransition("search")} className={activePage === "search" ? "active" : ""}>Search</button>
+                        <button onClick={() => startPageTransition("prefs")} className={activePage === "prefs" ? "active" : ""}>Preferences</button>
+                        <button className="dark-btn" onClick={toggleTheme}>
                             {darkMode ? <IoSunny /> : <IoMoon />}
                         </button>
                     </div>
                     {loading && <div className="loading-inline"><div className="loading-progress"></div></div>}
                 </div>
 
-                {page === "planner" && (
-                    <div className="planner-container">
+                {activePage === "planner" && (
+                    <div className={`planner-container page-anim ${animOut ? 'anim-out' : ''} ${animIn ? 'anim-in' : ''}`}>
                         {/* Left panel - Schedule Visualizer */}
                         <div className="left-panel">
                             <div className="panel-card-header">
@@ -368,7 +595,62 @@ export default function App() {
                                 </div>
                             </div>
                             <div className="schedule-visual">
-                                <p>Schedule visualization goes here.</p>
+                                {(() => {
+                                    const sched = result?.schedules?.[currentIndex];
+                                    const dayNames = ['Mon','Tue','Wed','Thu','Fri'];
+                                    const rangeStart = Math.floor((timeRange?.[0] ?? 8));
+                                    const rangeEnd = Math.ceil((timeRange?.[1] ?? 18));
+                                    const totalMin = Math.max(60, (rangeEnd - rangeStart) * 60);
+                                    const hours = [];
+                                    for (let h = rangeStart; h <= rangeEnd; h++) hours.push(h);
+                                    const labelFor = (h) => {
+                                        const ampm = h >= 12 ? 'PM' : 'AM';
+                                        const d = h % 12 === 0 ? 12 : h % 12;
+                                        return `${d}${ampm}`;
+                                    };
+                                    if (!sched) return <div className="empty-schedule muted">No schedule loaded</div>;
+                                    // group meetings by day
+                                    const byDay = Object.fromEntries(dayNames.map(d => [d, []]));
+                                    for (const c of sched.courses || []) {
+                                        const hue = hueForCourse(c);
+                                        const evStyle = eventStyleForHue(hue);
+                                        const meetings = extractMeetings(c);
+                                        for (const m of meetings) {
+                                            if (!dayNames.includes(m.day)) continue;
+                                            const startClamped = Math.max(rangeStart * 60, m.start);
+                                            const endClamped = Math.min(rangeEnd * 60, m.end);
+                                            if (endClamped <= startClamped) continue;
+                                            const topPct = ((startClamped - rangeStart * 60) / totalMin) * 100;
+                                            const heightPct = ((endClamped - startClamped) / totalMin) * 100;
+                                            byDay[m.day].push({ course: c, topPct, heightPct, style: evStyle, start: m.start, end: m.end });
+                                        }
+                                    }
+                                    return (
+                                        <div className="schedule-week">
+                                            <div className="day-label-row">
+                                                <div className="time-spacer" />
+                                                {dayNames.map(d => <div key={d} className="day-label">{d}</div>)}
+                                            </div>
+                                            <div className="schedule-grid">
+                                                <div className="time-col">
+                                                    {hours.map(h => (
+                                                        <div key={h} className="time-tick" style={{ top: `${((h - rangeStart) / (rangeEnd - rangeStart)) * 100}%` }}>
+                                                            <span>{labelFor(h)}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                {dayNames.map((d) => (
+                                                    <div key={d} className="day-col">
+                                                        {(byDay[d] || []).sort((a,b) => a.topPct - b.topPct).map((ev, idx) => (
+                                                            <div key={idx} className="event-block" style={{ top: `${ev.topPct}%`, height: `${ev.heightPct}%`, '--ev-delay': `${Math.min(idx, 8) * 60}ms`, ...ev.style }}>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
 
@@ -392,10 +674,13 @@ export default function App() {
                                             value={input}
                                             onChange={(e) => setInput(e.target.value)}
                                         />
-                                        <div className="btn-row" style={{ marginTop: "10px" }}>
+                        <div className="btn-row" style={{ marginTop: "10px" }}>
                                             <button className="add-btn" onClick={addCourse}>Add</button>
                                             <button className="generate-btn" onClick={getSchedules}>Generate</button>
                                         </div>
+                                        {needsRegenerate && (
+                                            <div className="regen-indicator">Settings changed — regenerate to update results</div>
+                                        )}
 
                                     <div className="subheader-with-info planner-your-courses-header">
                                         <h4>Your Courses</h4>
@@ -456,9 +741,15 @@ export default function App() {
                                                             {result.schedules.map((sched, idx) => (
                                                                 <div key={idx} className="result-slide" style={{ height: `${100 / result.schedules.length}%` }}>
                                                                     <div className="slide-scroll">
-                                                                        <div className="schedule-courses">
+                                                                        <div className="course-legend">
                                                                             {sched.courses.map((c, i) => (
-                                                                                <span key={i} className="course-chip">{c.subject} {c.courseNum} (CRN {c.crn})</span>
+                                                                                <div key={`legend-${i}`} className="course-row">
+                                                                                    <span className="course-chip dot" style={chipStyleForHue(hueForCourse(c))} />
+                                                                                    <span className="course-label">
+                                                                                        {c.subject} {c.courseNum} (CRN {c.crn})
+                                                                                        {(() => { const dd = parseDeliveryDays(c.delivery); return dd === 'WEB' ? <span className="legend-web"> • WEB</span> : null; })()}
+                                                                                    </span>
+                                                                                </div>
                                                                             ))}
                                                                         </div>
                                                                         {optimizeFreeTime && <p className="free-time">Free time: {sched.freeTime}</p>}
@@ -472,6 +763,7 @@ export default function App() {
                                                     <button onClick={() => setCurrentIndex(i => Math.max(i - 1, 0))} disabled={currentIndex === 0}>
                                                         <IoChevronUp />
                                                     </button>
+                                                    <div className="results-count">{(currentIndex + 1)} / {result.schedules.length}</div>
                                                     <button onClick={() => setCurrentIndex(i => Math.min(i + 1, result.schedules.length - 1))} disabled={currentIndex === result.schedules.length - 1}>
                                                         <IoChevronDown />
                                                     </button>
@@ -485,8 +777,8 @@ export default function App() {
                     </div>
                 )}
 
-                {page === "search" && (
-                    <div className="search-page">
+                {activePage === "search" && (
+                    <div className={`search-page page-anim ${animOut ? 'anim-out' : ''} ${animIn ? 'anim-in' : ''}`}>
                         <div className="snap-container">
                             <div ref={searchSnapRef} className="snap-scroll search-snap">
                                 {/* Search inputs card */}
@@ -577,7 +869,7 @@ export default function App() {
                     </div>
                 )}
                 
-                {page === "prefs" && <div className="prefs-panel">
+                {activePage === "prefs" && <div className={`prefs-panel page-anim ${animOut ? 'anim-out' : ''} ${animIn ? 'anim-in' : ''}`}>
                     <div className="panel prefs-panel">
                         <h4>Preferences</h4>
 

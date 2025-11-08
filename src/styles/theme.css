@@ -53,3 +53,8 @@
 .dark-mode {
     color: #e8e8e8;
 }
+
+/* Stagger theme transitions from top to bottom by delaying existing transitions per element */
+.theme-stagger * {
+    transition-delay: var(--theme-delay, 0s) !important;
+}
