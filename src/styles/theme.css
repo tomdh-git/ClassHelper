@@ -30,6 +30,7 @@ html, body, .app-wrapper, * {
     position: relative;
     overflow: hidden;
     border-radius: 20px; /* clip rounded corners for the whole window */
+    clip-path: inset(0 round 20px);
 }
 
 /* Remove any overlay so spaces between panels are truly OS-transparent */

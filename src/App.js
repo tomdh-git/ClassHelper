@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import InfoTip from "./components/common/InfoTip";
-import { Range } from "react-range";
+import { Range, getTrackBackground } from "react-range";
 import "./styles/index.css";
 import { IoClose, IoChevronUp, IoChevronDown, IoSunny, IoMoon } from "react-icons/io5";
 
@@ -74,6 +74,7 @@ export default function App() {
     const [term, setTerm] = useState("202620");
     const [optimizeFreeTime, setOptimizeFreeTime] = useState(true);
     const [darkMode, setDarkMode] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
     const appRef = useRef(null);
 
     const toggleTheme = () => {
@@ -334,6 +335,7 @@ export default function App() {
 
         try {
             setLoading(true);
+            setIsGenerating(true);
             setNeedsRegenerate(false);
             // First attempt: renderer fetch
             let res = await fetch(GRAPHQL_URL, {
@@ -393,6 +395,7 @@ export default function App() {
             notify(`Generate error: ${String(e && e.message || e)}`, 'error', 6000);
         } finally {
             setLoading(false);
+            setIsGenerating(false);
         }
     };
 
@@ -504,17 +507,23 @@ export default function App() {
     useEffect(() => {
         (async () => {
             try {
-                const query = `\n        query {\n          getTerms {\n            ... on SuccessField { fields { name } }\n            ... on ErrorField { error message }\n          }\n        }`;
+                const query = `\n        query {\n          getTerms {\n            ... on SuccessTerm { terms { name } }\n            ... on ErrorTerm { error message }\n          }\n        }`;
                 let data = null;
                 try {
                     const res = await fetch(GRAPHQL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) });
                     data = await res.json();
                 } catch {}
-                if ((!data || !data.data) && window.electronAPI?.graphql) {
+                // If empty or error, try Electron main-process fallback
+                let node = data?.data?.getTerms;
+                let list = Array.isArray(node?.terms) ? node.terms : [];
+                if ((list.length === 0 || node?.error) && window.electronAPI?.graphql) {
                     const m = await window.electronAPI.graphql(query, GRAPHQL_URL);
-                    if (m?.data) data = m.data;
+                    if (m?.data) {
+                        data = m.data;
+                        node = data?.data?.getTerms;
+                        list = Array.isArray(node?.terms) ? node.terms : [];
+                    }
                 }
-                const list = data?.data?.getTerms?.terms || [];
                 const parsed = list.map(t => String(t?.name || '')).filter(Boolean);
                 const mapSeason = (code) => {
                     const y = code.slice(0,4);
@@ -522,9 +531,14 @@ export default function App() {
                     const season = s === '10' ? 'Fall' : s === '15' ? 'Winter' : s === '20' ? 'Spring' : s === '30' ? 'Summer' : s;
                     return `${season} ${y}`;
                 };
-                const unique = Array.from(new Set(parsed));
-                const first4 = unique.slice(0,4);
-                const opts = first4.map(c => ({ code: c, label: mapSeason(c) }));
+                // keep API order, dedupe, then first 4
+                const seen = new Set();
+                const firstFour = [];
+                for (const c of parsed) {
+                    if (!seen.has(c)) { seen.add(c); firstFour.push(c); }
+                    if (firstFour.length === 4) break;
+                }
+                const opts = firstFour.map(c => ({ code: c, label: mapSeason(c) }));
                 if (opts.length) setAvailableTerms(opts);
                 if (opts.length && !opts.some(o => o.code === term)) setTerm(opts[0].code);
             } catch {}
@@ -720,7 +734,7 @@ export default function App() {
     };
 
     return (
-        <div ref={appRef} className={`app-wrapper ${darkMode ? "dark-mode" : ""} transparent-bg`}>
+        <div ref={appRef} className={`app-wrapper ${darkMode ? "dark-mode" : ""}`}>
             <div className="glass-container">
                 <div className="toast-container">
 {toasts.map(t => (
@@ -731,20 +745,19 @@ export default function App() {
                 <div className="header-bar">
                     <div className="logo-text">
                         <img src={`${process.env.PUBLIC_URL}/assets/img/${darkMode ? 'logo_dark.png' : 'logo_light.png'}`} alt="Logo" className="app-logo" />
-                        <h2>ClassHelper V2</h2>
+                        <h2>ClassHelper</h2>
                     </div>
                         <div className="nav-buttons">
                         <button onClick={() => startPageTransition("planner")} className={activePage === "planner" ? "active" : ""}>Planner</button>
                         <button onClick={() => startPageTransition("search")} className={activePage === "search" ? "active" : ""}>Search</button>
                         <button onClick={() => startPageTransition("prefs")} className={activePage === "prefs" ? "active" : ""}>Preferences</button>
                         <button className="dark-btn" onClick={toggleTheme} title="Toggle dark mode" aria-label="Toggle theme">
-                            {darkMode ? <IoSunny size={18} color="#ffffff" /> : <IoMoon size={18} color="#222222" />}
+                            <span className="icon-wrap">{darkMode ? <IoSunny size={22} /> : <IoMoon size={22} />}</span>
                         </button>
                         <button className="close-btn" onClick={() => { if (window.electronAPI?.closeApp) { window.electronAPI.closeApp(); } else { window.close(); } }} title="Close" aria-label="Close">
                             <span style={{ fontWeight: 900 }}>×</span>
                         </button>
                     </div>
-                    {loading && <div className="loading-inline"><div className="loading-progress"></div></div>}
                 </div>
 
                 {activePage === "planner" && (
@@ -763,8 +776,8 @@ export default function App() {
                                 {(() => {
                                     const sched = result?.schedules?.[currentIndex];
                                     const dayNames = ['Mon','Tue','Wed','Thu','Fri'];
-                                    const rangeStart = Math.floor((timeRange?.[0] ?? 8));
-                                    const rangeEnd = Math.ceil((timeRange?.[1] ?? 18));
+                                    const rangeStart = 7;
+                                    const rangeEnd = 21;
                                     const totalMin = Math.max(60, (rangeEnd - rangeStart) * 60);
                                     const hours = [];
                                     for (let h = rangeStart; h <= rangeEnd; h++) hours.push(h);
@@ -841,7 +854,7 @@ export default function App() {
                                         />
                         <div className="btn-row" style={{ marginTop: "10px" }}>
                                             <button className="add-btn" onClick={addCourse}>Add</button>
-                                            <button className="generate-btn" onClick={getSchedules}>Generate</button>
+                                            <button className={`generate-btn ${isGenerating ? 'loading' : ''}`} onClick={getSchedules} disabled={isGenerating}>{isGenerating ? 'Generating…' : 'Generate'}</button>
                                         </div>
                                         {needsRegenerate && (
                                             <div className="regen-indicator">Settings changed — regenerate to update results</div>
@@ -1127,7 +1140,21 @@ export default function App() {
                                     values={timeRange}
                                     onChange={(values) => setTimeRange(values)}
                                     renderTrack={({ props, children }) => (
-                                        <div {...props} className="range-track">{children}</div>
+                                        <div
+                                            {...props}
+                                            className="range-track"
+                                            style={{
+                                                ...props.style,
+                                                background: getTrackBackground({
+                                                    values: timeRange,
+                                                    colors: [darkMode ? '#2a2a2a' : '#e5e7eb', '#ff3b30', darkMode ? '#2a2a2a' : '#e5e7eb'],
+                                                    min: 6,
+                                                    max: 22,
+                                                })
+                                            }}
+                                        >
+                                            {children}
+                                        </div>
                                     )}
                                     renderThumb={({ props }) => (
                                         <div {...props} className="range-thumb" />

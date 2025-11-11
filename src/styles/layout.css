@@ -26,8 +26,8 @@
     padding: 8px 12px;
     flex: 0 0 auto;
     background: rgba(255, 255, 255, 0.88);
-    -webkit-backdrop-filter: blur(24px) saturate(160%);
-    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
+    backdrop-filter: blur(8px) saturate(140%);
     border-radius: 14px;
     margin-bottom: 12px;
     border: 1px solid rgba(0, 0, 0, 0.05);
@@ -36,9 +36,11 @@
 }
 
 .dark-mode .header-bar {
-    background: rgba(8, 8, 12, 0.6);
+    background: rgba(6, 6, 8, 0.86);
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
+    backdrop-filter: blur(8px) saturate(140%);
     border: 1px solid rgba(255,255,255,0.10);
-    box-shadow: 0 8px 28px rgba(0,0,0,0.45);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.75);
 }
 
 /* logo + title group */
@@ -94,7 +96,7 @@
     border: 1px solid rgba(0, 0, 0, 0.06);
 }
 .dark-mode .nav-buttons button {
-    background: rgba(12,12,16,0.6);
+    background: rgba(6,6,8,0.86);
     border: 1px solid rgba(255, 255, 255, 0.16);
     color: #fff !important;
 }
@@ -144,16 +146,24 @@
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    font-size: 20px;
+    line-height: 1;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid rgba(0, 0, 0, 0.06);
 }
-.dark-mode .dark-btn, .dark-mode .close-btn { background: rgba(12,12,16,0.6); border: 1px solid rgba(255,255,255,0.16); color: #fff; }
+.dark-btn { font-size: 0; color: #222; }
+.close-btn { font-size: 20px; }
+.dark-btn .icon-wrap, .close-btn .icon-wrap { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; }
+.dark-btn .icon-wrap svg, .close-btn .icon-wrap svg { width: 22px; height: 22px; min-width: 22px; min-height: 22px; }
+.dark-mode .dark-btn, .dark-mode .close-btn { background: rgba(6,6,8,0.86); border: 1px solid rgba(255,255,255,0.16); color: #fff; }
 
 /* fix icon colors/sizes */
 .nav-buttons button svg { width: 20px; height: 20px; }
-.dark-mode .dark-btn svg, .dark-mode .close-btn svg { color: #fff; }
-.dark-btn svg, .close-btn svg { color: #222; }
+.dark-mode .dark-btn svg, .dark-mode .close-btn svg { color: inherit; }
+.dark-btn svg, .close-btn svg { display: block; pointer-events: none; }
+/* ensure icon fills with currentColor for visibility */
+.dark-btn svg, .dark-btn svg * { fill: currentColor !important; }
+/* leave close-btn text glyph alone */
+.dark-btn svg, .close-btn svg { display: block; pointer-events: none; }
 
 .dark-btn:hover, .close-btn:hover {
     background: rgba(255, 255, 255, 0.95);
