@@ -98,6 +98,27 @@ export default function App() {
     };
     const [timeRange, setTimeRange] = useState([8, 18]);
     const [availableTerms, setAvailableTerms] = useState([]);
+    const [termsLoading, setTermsLoading] = useState(true);
+    const trackValuesRef = useRef([8,18]);
+    const trackElRef = useRef(null);
+    const trackRafRef = useRef(0);
+    const updateTrackBg = (vals) => {
+        try {
+            const el = trackElRef.current;
+            if (!el) return;
+            const sorted = [...vals].sort((a,b)=>a-b);
+            if (trackRafRef.current) cancelAnimationFrame(trackRafRef.current);
+            trackRafRef.current = requestAnimationFrame(() => {
+                el.style.background = getTrackBackground({
+                    values: sorted,
+                    colors: [darkMode ? '#2a2a2a' : '#e5e7eb', '#ff3b30', darkMode ? '#2a2a2a' : '#e5e7eb'],
+                    min: 6,
+                    max: 22,
+                });
+            });
+        } catch {}
+    };
+    useEffect(() => { trackValuesRef.current = timeRange; updateTrackBg(timeRange); return () => { if (trackRafRef.current) cancelAnimationFrame(trackRafRef.current); }; }, [timeRange, darkMode]);
     const [currentIndex, setCurrentIndex] = useState(0);
     // Toasts and stale-generation indicator
     const [toasts, setToasts] = useState([]);
@@ -506,22 +527,32 @@ export default function App() {
     // Fetch terms once (best-effort)
     useEffect(() => {
         (async () => {
+            setTermsLoading(true);
             try {
-                const query = `\n        query {\n          getTerms {\n            ... on SuccessTerm { terms { name } }\n            ... on ErrorTerm { error message }\n          }\n        }`;
+                const query = `
+                query {
+                  getTerms {
+                    ... on SuccessField {
+                      fields { name }
+                    }
+                    ... on ErrorField { error message }
+                  }
+                }
+                `;
                 let data = null;
                 try {
                     const res = await fetch(GRAPHQL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) });
                     data = await res.json();
                 } catch {}
                 // If empty or error, try Electron main-process fallback
-                let node = data?.data?.getTerms;
-                let list = Array.isArray(node?.terms) ? node.terms : [];
+                let node = data?.data?.getTerms || {};
+                let list = Array.isArray(node?.fields) ? node.fields : (Array.isArray(node?.terms) ? node.terms : []);
                 if ((list.length === 0 || node?.error) && window.electronAPI?.graphql) {
                     const m = await window.electronAPI.graphql(query, GRAPHQL_URL);
                     if (m?.data) {
                         data = m.data;
-                        node = data?.data?.getTerms;
-                        list = Array.isArray(node?.terms) ? node.terms : [];
+                        node = data?.data?.getTerms || {};
+                        list = Array.isArray(node?.fields) ? node.fields : (Array.isArray(node?.terms) ? node.terms : []);
                     }
                 }
                 const parsed = list.map(t => String(t?.name || '')).filter(Boolean);
@@ -531,17 +562,14 @@ export default function App() {
                     const season = s === '10' ? 'Fall' : s === '15' ? 'Winter' : s === '20' ? 'Spring' : s === '30' ? 'Summer' : s;
                     return `${season} ${y}`;
                 };
-                // keep API order, dedupe, then first 4
                 const seen = new Set();
                 const firstFour = [];
-                for (const c of parsed) {
-                    if (!seen.has(c)) { seen.add(c); firstFour.push(c); }
-                    if (firstFour.length === 4) break;
-                }
+                for (const c of parsed) { if (!seen.has(c)) { seen.add(c); firstFour.push(c); } if (firstFour.length === 4) break; }
                 const opts = firstFour.map(c => ({ code: c, label: mapSeason(c) }));
-                if (opts.length) setAvailableTerms(opts);
+                try { console.debug('terms parsed', { rawCount: list.length, parsed, firstFour: opts }); } catch {}
+                setAvailableTerms(opts);
                 if (opts.length && !opts.some(o => o.code === term)) setTerm(opts[0].code);
-            } catch {}
+            } finally { setTermsLoading(false); }
         })();
     }, []);
 
@@ -851,6 +879,7 @@ export default function App() {
                                             placeholder="Ex: CSE 374"
                                             value={input}
                                             onChange={(e) => setInput(e.target.value)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); const t = (input || '').trim(); if (t) { addCourse(); } else { getSchedules(); } } }}
                                         />
                         <div className="btn-row" style={{ marginTop: "10px" }}>
                                             <button className="add-btn" onClick={addCourse}>Add</button>
@@ -972,7 +1001,7 @@ export default function App() {
 <InfoTip isDark={darkMode} content={<span>Enter a numeric CRN (course registration number).</span>} />
                                                             </div>
                                                         </div>
-                                                        <input className="input-box input-dark" placeholder="e.g., 12384" value={crnInput} onChange={(e) => setCrnInput(e.target.value)} />
+                                                        <input className="input-box input-dark" placeholder="e.g., 12384" value={crnInput} onChange={(e) => setCrnInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchByCRN(); setTimeout(() => searchScrollSnapBy(1), 0); } }} />
                                                         <div className="btn-row compact">
                                                             <button className="generate-btn btn-small" onClick={() => { searchByCRN(); setTimeout(() => searchScrollSnapBy(1), 0); }}>Search CRN</button>
                                                         </div>
@@ -984,7 +1013,7 @@ export default function App() {
 <InfoTip isDark={darkMode} content={<span>Use format like CSE 381 (subject + number).</span>} />
                                                             </div>
                                                         </div>
-                                                        <input className="input-box input-dark" placeholder="e.g., CSE 381" value={courseSearchInput} onChange={(e) => setCourseSearchInput(e.target.value)} />
+                                                        <input className="input-box input-dark" placeholder="e.g., CSE 381" value={courseSearchInput} onChange={(e) => setCourseSearchInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchByInfo(); setTimeout(() => searchScrollSnapBy(1), 0); } }} />
                                                         <div className="btn-row compact">
                                                             <button className="generate-btn btn-small" onClick={() => { searchByInfo(); setTimeout(() => searchScrollSnapBy(1), 0); }}>Search Course</button>
                                                         </div>
@@ -1084,18 +1113,21 @@ export default function App() {
                                 </div>
                             </span>
                             <div className="choice-group single">
-                                {(availableTerms.length ? availableTerms : [
-                                    { label: "Spring 2026", code: "202620" },
-                                    { label: "Fall 2025", code: "202610" }
-                                ]).map((opt) => (
-                                    <button
-                                        key={opt.code}
-                                        className={`choice-button ${term === opt.code ? 'selected' : ''}`}
-                                        onClick={() => setTerm(opt.code)}
-                                    >
-                                        {opt.label}
-                                    </button>
-                                ))}
+                                {availableTerms.length ? (
+                                    availableTerms.map((opt) => (
+                                        <button
+                                            key={opt.code}
+                                            className={`choice-button ${term === opt.code ? 'selected' : ''}`}
+                                            onClick={() => setTerm(opt.code)}
+                                        >
+                                            {opt.label}
+                                        </button>
+                                    ))
+                                ) : termsLoading ? (
+                                    <span className="muted">Loading terms…</span>
+                                ) : (
+                                    <span className="muted">No terms available</span>
+                                )}
                             </div>
                         </div>
 
@@ -1138,15 +1170,16 @@ export default function App() {
                                     min={6}
                                     max={22}
                                     values={timeRange}
-                                    onChange={(values) => setTimeRange(values)}
+                                    onChange={(values) => { trackValuesRef.current = values; updateTrackBg(values); setTimeRange(values); }}
                                     renderTrack={({ props, children }) => (
                                         <div
                                             {...props}
+                                            ref={(node) => { trackElRef.current = node; const r = props.ref; if (typeof r === 'function') { r(node); } else if (r && typeof r === 'object') { try { r.current = node; } catch {} } }}
                                             className="range-track"
                                             style={{
                                                 ...props.style,
                                                 background: getTrackBackground({
-                                                    values: timeRange,
+                                                    values: [...(trackValuesRef.current || timeRange)].sort((a,b)=>a-b),
                                                     colors: [darkMode ? '#2a2a2a' : '#e5e7eb', '#ff3b30', darkMode ? '#2a2a2a' : '#e5e7eb'],
                                                     min: 6,
                                                     max: 22,
