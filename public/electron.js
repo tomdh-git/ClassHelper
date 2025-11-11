@@ -15,13 +15,17 @@ function getConfigPath() {
 
 function createWindow() {
     const win = new BrowserWindow({
-        width: 1200,
-        height: 800,
+        width: 1000,
+        height: 680,
+        minWidth: 900,
+        minHeight: 600,
         frame: false,
         transparent: true,
         backgroundColor: '#00000000',
+        roundedCorners: true,
         backgroundMaterial: 'acrylic',
         visualEffectState: 'active',
+        roundedCorners: true,
         show: false,
         autoHideMenuBar: true,
         webPreferences: {
@@ -29,6 +33,10 @@ function createWindow() {
             preload: path.join(__dirname, 'preload.js'),
             sandbox: false,
             webSecurity: false, // allow cross-origin requests for file:// origin
+            hardwareAcceleration: true,
+            enableRemoteModule: false,
+            nodeIntegration: false,
+            v8CacheOptions: 'code',
         }
     });
 

@@ -96,6 +96,7 @@ export default function App() {
         }, maxDelay + 400);
     };
     const [timeRange, setTimeRange] = useState([8, 18]);
+    const [availableTerms, setAvailableTerms] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     // Toasts and stale-generation indicator
     const [toasts, setToasts] = useState([]);
@@ -499,6 +500,37 @@ export default function App() {
         };
     }, []);
 
+    // Fetch terms once (best-effort)
+    useEffect(() => {
+        (async () => {
+            try {
+                const query = `\n        query {\n          getTerms {\n            ... on SuccessField { fields { name } }\n            ... on ErrorField { error message }\n          }\n        }`;
+                let data = null;
+                try {
+                    const res = await fetch(GRAPHQL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) });
+                    data = await res.json();
+                } catch {}
+                if ((!data || !data.data) && window.electronAPI?.graphql) {
+                    const m = await window.electronAPI.graphql(query, GRAPHQL_URL);
+                    if (m?.data) data = m.data;
+                }
+                const list = data?.data?.getTerms?.terms || [];
+                const parsed = list.map(t => String(t?.name || '')).filter(Boolean);
+                const mapSeason = (code) => {
+                    const y = code.slice(0,4);
+                    const s = code.slice(4);
+                    const season = s === '10' ? 'Fall' : s === '15' ? 'Winter' : s === '20' ? 'Spring' : s === '30' ? 'Summer' : s;
+                    return `${season} ${y}`;
+                };
+                const unique = Array.from(new Set(parsed));
+                const first4 = unique.slice(0,4);
+                const opts = first4.map(c => ({ code: c, label: mapSeason(c) }));
+                if (opts.length) setAvailableTerms(opts);
+                if (opts.length && !opts.some(o => o.code === term)) setTerm(opts[0].code);
+            } catch {}
+        })();
+    }, []);
+
     // Smooth scroll helper with slower, smoother easing
     const animateScrollTo = (el, to, duration = 750) => {
         const start = el.scrollTop;
@@ -531,15 +563,16 @@ export default function App() {
 
     // Fade-out chips on results navigation
     const [chipsFading, setChipsFading] = useState(false);
+    const chipsFadingTimeoutRef = useRef(null);
     const navResults = (delta) => {
+        if (chipsFadingTimeoutRef.current) clearTimeout(chipsFadingTimeoutRef.current);
         setChipsFading(true);
         setCurrentIndex(i => {
             const max = Math.max(0, (result?.schedules?.length || 0) - 1);
             const next = Math.min(Math.max(i + delta, 0), max);
             return next;
         });
-        // Clear fading state after the slide transition
-        setTimeout(() => setChipsFading(false), 280);
+        chipsFadingTimeoutRef.current = setTimeout(() => setChipsFading(false), 260);
     };
 
     // Search snap
@@ -687,7 +720,7 @@ export default function App() {
     };
 
     return (
-        <div ref={appRef} className={`app-wrapper ${darkMode ? "dark-mode" : ""}`}>
+        <div ref={appRef} className={`app-wrapper ${darkMode ? "dark-mode" : ""} transparent-bg`}>
             <div className="glass-container">
                 <div className="toast-container">
 {toasts.map(t => (
@@ -700,14 +733,14 @@ export default function App() {
                         <img src={`${process.env.PUBLIC_URL}/assets/img/${darkMode ? 'logo_dark.png' : 'logo_light.png'}`} alt="Logo" className="app-logo" />
                         <h2>ClassHelper V2</h2>
                     </div>
-                    <div className="nav-buttons">
+                        <div className="nav-buttons">
                         <button onClick={() => startPageTransition("planner")} className={activePage === "planner" ? "active" : ""}>Planner</button>
                         <button onClick={() => startPageTransition("search")} className={activePage === "search" ? "active" : ""}>Search</button>
                         <button onClick={() => startPageTransition("prefs")} className={activePage === "prefs" ? "active" : ""}>Preferences</button>
-                        <button className="dark-btn" onClick={toggleTheme} title="Toggle dark mode">
-                            {darkMode ? <IoSunny /> : <IoMoon />}
+                        <button className="dark-btn" onClick={toggleTheme} title="Toggle dark mode" aria-label="Toggle theme">
+                            {darkMode ? <IoSunny size={18} color="#ffffff" /> : <IoMoon size={18} color="#222222" />}
                         </button>
-                        <button className="close-btn" onClick={() => { if (window.electronAPI?.closeApp) { window.electronAPI.closeApp(); } else { window.close(); } }} title="Close">
+                        <button className="close-btn" onClick={() => { if (window.electronAPI?.closeApp) { window.electronAPI.closeApp(); } else { window.close(); } }} title="Close" aria-label="Close">
                             <span style={{ fontWeight: 900 }}>×</span>
                         </button>
                     </div>
@@ -1038,10 +1071,10 @@ export default function App() {
                                 </div>
                             </span>
                             <div className="choice-group single">
-                                {[
+                                {(availableTerms.length ? availableTerms : [
                                     { label: "Spring 2026", code: "202620" },
                                     { label: "Fall 2025", code: "202610" }
-                                ].map((opt) => (
+                                ]).map((opt) => (
                                     <button
                                         key={opt.code}
                                         className={`choice-button ${term === opt.code ? 'selected' : ''}`}
@@ -1108,7 +1141,6 @@ export default function App() {
             </div>
         </div>
     );
-
 
     async function validateCourseEntry(courseStr, idx) {
         const m = courseStr.trim().match(/^([A-Za-z]{2,4})\s+([A-Za-z0-9]+)$/);

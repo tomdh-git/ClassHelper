@@ -5,31 +5,16 @@
     max-width: 100vw;
     height: 100vh;
     margin: 0;
-    padding: 24px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    background: rgba(255, 255, 255, 0.55);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
-    border-radius: 22px; /* rounded window edges */
-    border: 1px solid rgba(255, 255, 255, 0.7);
-    box-shadow: 0 12px 36px rgba(0,0,0,0.18);
-    overflow: visible;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    -webkit-app-region: drag; /* allow dragging almost anywhere */
+    background: transparent; /* spaces between panels are true OS transparency */
+    border-radius: 24px; /* rounded window edges */
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.glass-container:hover {
-    box-shadow: 0 12px 48px 0 rgba(31, 38, 135, 0.45),
-                inset 0 0 0 1px rgba(255, 255, 255, 0.25);
-}
-
-.dark-mode .glass-container {
-    background: rgba(20, 20, 30, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5),
-                inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
+.dark-mode .glass-container { background: transparent; }
 
 /* ---------- Header ---------- */
 .header-bar {
@@ -38,18 +23,22 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 12px 20px;
+    padding: 8px 12px;
     flex: 0 0 auto;
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(20px);
-    border-radius: 18px;
-    margin-bottom: 20px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.88);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    backdrop-filter: blur(24px) saturate(160%);
+    border-radius: 14px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    -webkit-app-region: drag; /* drag from header */
 }
 
 .dark-mode .header-bar {
-    background: rgba(18,18,20,0.6);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(8, 8, 12, 0.6);
+    border: 1px solid rgba(255,255,255,0.10);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.45);
 }
 
 /* logo + title group */
@@ -105,7 +94,7 @@
     border: 1px solid rgba(0, 0, 0, 0.06);
 }
 .dark-mode .nav-buttons button {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(12,12,16,0.6);
     border: 1px solid rgba(255, 255, 255, 0.16);
     color: #fff !important;
 }
@@ -146,10 +135,11 @@
 .dark-btn, .close-btn {
     -webkit-app-region: no-drag;
     border: none;
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.85);
     cursor: pointer;
-    padding: 10px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -158,11 +148,16 @@
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid rgba(0, 0, 0, 0.06);
 }
-.dark-mode .dark-btn, .dark-mode .close-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.16); color: #fff; }
+.dark-mode .dark-btn, .dark-mode .close-btn { background: rgba(12,12,16,0.6); border: 1px solid rgba(255,255,255,0.16); color: #fff; }
+
+/* fix icon colors/sizes */
+.nav-buttons button svg { width: 20px; height: 20px; }
+.dark-mode .dark-btn svg, .dark-mode .close-btn svg { color: #fff; }
+.dark-btn svg, .close-btn svg { color: #222; }
 
 .dark-btn:hover, .close-btn:hover {
-    background: rgba(255, 255, 255, 0.25);
-    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.95);
+    transform: scale(1.06);
 }
 
 /* subtly emphasize close */
@@ -191,6 +186,25 @@
 .page-anim.anim-out { animation: pageOut 180ms cubic-bezier(0.4, 0, 0.2, 1) both; }
 @keyframes pageIn { from { opacity: 0; transform: translateY(8px) scale(0.995); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes pageOut { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-6px) scale(0.995); } }
+
+/* ---------- Proof-of-concept: fully transparent backgrounds ---------- */
+.transparent-bg .header-bar,
+.transparent-bg .left-panel,
+.transparent-bg .panel-card,
+.transparent-bg .result-window,
+.transparent-bg .course-list-container,
+.transparent-bg .search-subcard,
+.transparent-bg .search-card,
+.transparent-bg .filler-box,
+.transparent-bg .panel.prefs-panel,
+.transparent-bg .prefs-row,
+.transparent-bg .switch-container,
+.transparent-bg .prefs-time-row,
+.transparent-bg .schedule-visual {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
 
 /* ---------- Loading bar ---------- */
 .loading-inline {

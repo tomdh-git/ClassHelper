@@ -21,6 +21,8 @@
   "build": {
     "appId": "com.classhelper.app",
     "asar": true,
+    "compression": "store",
+    "npmRebuild": false,
     "files": [
       "build/**/*",
       "public/electron.js",
