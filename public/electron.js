@@ -23,10 +23,6 @@ function createWindow() {
         transparent: true,
         backgroundColor: '#00000000',
         roundedCorners: true,
-        backgroundMaterial: 'acrylic',
-        visualEffectState: 'active',
-        roundedCorners: true,
-        show: false,
         autoHideMenuBar: true,
         webPreferences: {
             contextIsolation: true,
@@ -52,7 +48,6 @@ function createWindow() {
     // Ensure menu stays hidden (no toolbar)
     win.setMenuBarVisibility(false);
     win.setBackgroundColor('#00000000');
-    win.once('ready-to-show', () => win.show());
 }
 
 // IPC for config read/write

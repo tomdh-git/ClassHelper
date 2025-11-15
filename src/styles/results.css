@@ -103,7 +103,7 @@
     box-shadow: 0 8px 24px rgba(0,0,0,0.45);
 }
 .result-window::-webkit-scrollbar { display: none; }
-.result-window { scrollbar-width: none; }
+.result-window { scrollbar-width: none; opacity: 1; }
 
 .result-slider {
     padding-top: 10px;

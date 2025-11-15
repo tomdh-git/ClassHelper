@@ -81,7 +81,7 @@
 }
 
 .panel-card:hover {
-    background: inherit;
+    background: rgba(255, 255, 255, 0.66); /* keep same opacity, no extra transparency */
     box-shadow: 0 20px 60px rgba(0,0,0,0.16);
 }
 

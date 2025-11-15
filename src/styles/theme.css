@@ -47,15 +47,4 @@ html, body, .app-wrapper, * {
     transition-delay: var(--theme-delay, 0s) !important;
 }
 
-/* Performance optimizations */
-.app-wrapper,
-.glass-container,
-.panel-card,
-.header-bar,
-.left-panel,
-.right-panel {
-    will-change: transform;
-    transform: translateZ(0);
-    backface-visibility: hidden;
-    perspective: 1000px;
-}
+/* Performance optimizations (keep minimal to avoid artifacts) */

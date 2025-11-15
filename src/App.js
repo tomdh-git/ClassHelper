@@ -99,6 +99,7 @@ export default function App() {
     const [timeRange, setTimeRange] = useState([8, 18]);
     const [availableTerms, setAvailableTerms] = useState([]);
     const [termsLoading, setTermsLoading] = useState(true);
+    const [showSplash, setShowSplash] = useState(true);
     const trackValuesRef = useRef([8,18]);
     const trackElRef = useRef(null);
     const trackRafRef = useRef(0);
@@ -119,6 +120,12 @@ export default function App() {
         } catch {}
     };
     useEffect(() => { trackValuesRef.current = timeRange; updateTrackBg(timeRange); return () => { if (trackRafRef.current) cancelAnimationFrame(trackRafRef.current); }; }, [timeRange, darkMode]);
+
+    // Show splash for a short time on startup, independent of network
+    useEffect(() => {
+        const id = setTimeout(() => setShowSplash(false), 450);
+        return () => clearTimeout(id);
+    }, []);
     const [currentIndex, setCurrentIndex] = useState(0);
     // Toasts and stale-generation indicator
     const [toasts, setToasts] = useState([]);
@@ -764,6 +771,14 @@ export default function App() {
     return (
         <div ref={appRef} className={`app-wrapper ${darkMode ? "dark-mode" : ""}`}>
             <div className="glass-container">
+                {showSplash && (
+                    <div className="splash-overlay">
+                        <div className="splash-card">
+                            <div className="splash-title">ClassHelper</div>
+                            <div className="splash-subtitle">Loading planner…</div>
+                        </div>
+                    </div>
+                )}
                 <div className="toast-container">
 {toasts.map(t => (
                         <div key={t.id} className={`toast ${t.type} ${t.closing ? 'closing' : ''}`}>{t.message}</div>
