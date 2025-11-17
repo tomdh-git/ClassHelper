@@ -7,14 +7,52 @@ app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
 
 const CONFIG_NAME = 'classhelper.config.json';
 
+let mainWindow = null;
+let splashWindow = null;
+const isDev = !app.isPackaged;
+
 function getConfigPath() {
     // Store config internally in userData (per-user app data), not next to the exe
     const baseDir = app.getPath('userData');
     return path.join(baseDir, CONFIG_NAME);
 }
 
-function createWindow() {
-    const win = new BrowserWindow({
+function createSplashWindow() {
+    // Small, simple loading window shown while the main React app boots.
+    splashWindow = new BrowserWindow({
+        width: 360,
+        height: 260,
+        resizable: false,
+        minimizable: false,
+        maximizable: false,
+        frame: false,
+        transparent: true,
+        backgroundColor: '#00000000',
+        roundedCorners: true,
+        alwaysOnTop: true,
+        show: true,
+        center: true,
+        webPreferences: {
+            contextIsolation: true,
+            sandbox: false,
+            webSecurity: false,
+            hardwareAcceleration: true,
+            enableRemoteModule: false,
+            nodeIntegration: false,
+            v8CacheOptions: 'code',
+        }
+    });
+
+    const splashPath = path.join(__dirname, 'splash.html');
+    splashWindow.loadFile(splashPath).catch(() => {});
+
+    splashWindow.on('closed', () => {
+        splashWindow = null;
+    });
+}
+
+function createMainWindow() {
+    mainWindow = new BrowserWindow({
         width: 1000,
         height: 680,
         minWidth: 900,
@@ -24,6 +62,7 @@ function createWindow() {
         backgroundColor: '#00000000',
         roundedCorners: true,
         autoHideMenuBar: true,
+        show: false, // we show it once React has finished loading
         webPreferences: {
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js'),
@@ -36,18 +75,35 @@ function createWindow() {
         }
     });
 
-    const isDev = !app.isPackaged;
+    // Ensure menu stays hidden (no toolbar)
+    mainWindow.setMenuBarVisibility(false);
+    mainWindow.setBackgroundColor('#00000000');
+
     if (isDev) {
-        win.loadURL('http://localhost:3000');
+        mainWindow.loadURL('http://localhost:3000');
     } else {
         // In production, this file lives alongside electron.js inside the build folder within app.asar
         const indexPath = path.join(__dirname, 'index.html');
-        win.loadFile(indexPath);
+        mainWindow.loadFile(indexPath);
     }
 
-    // Ensure menu stays hidden (no toolbar)
-    win.setMenuBarVisibility(false);
-    win.setBackgroundColor('#00000000');
+    mainWindow.webContents.once('did-finish-load', () => {
+        if (splashWindow && !splashWindow.isDestroyed()) {
+            splashWindow.close();
+        }
+        if (!mainWindow.isDestroyed()) {
+            mainWindow.show();
+        }
+    });
+
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
+}
+
+function createWindows() {
+    createSplashWindow();
+    createMainWindow();
 }
 
 // IPC for config read/write
@@ -112,12 +168,12 @@ ipcMain.on('config:read-sync', (event) => {
     }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(createWindows);
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) createWindows();
 });

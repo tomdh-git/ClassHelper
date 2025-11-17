@@ -3,6 +3,7 @@ import InfoTip from "./components/common/InfoTip";
 import { Range, getTrackBackground } from "react-range";
 import "./styles/index.css";
 import { IoClose, IoChevronUp, IoChevronDown, IoSunny, IoMoon } from "react-icons/io5";
+import GlassPanel from "./components/common/GlassPanel";
 
 const BASE_URL = "https://courseapi-production-3751.up.railway.app";
 const GRAPHQL_URL = `${BASE_URL}/graphql`;
@@ -806,7 +807,7 @@ export default function App() {
                 {activePage === "planner" && (
                     <div className={`planner-container page-anim ${animOut ? 'anim-out' : ''} ${animIn ? 'anim-in' : ''}`}>
                         {/* Left panel - Schedule Visualizer */}
-                        <div className="left-panel">
+                        <GlassPanel as="div" className="left-panel">
                             <div className="panel-card-header">
                                 <div className="title-with-info">
                                     <h3>Schedule Preview</h3>
@@ -873,14 +874,14 @@ export default function App() {
                                     );
                                 })()}
                             </div>
-                        </div>
+                        </GlassPanel>
 
                         {/* Right panel - Snap scroll cards with overlay indicators */}
                         <div className="right-panel">
                             <div className="snap-container">
                                 <div ref={snapScrollRef} className="snap-scroll">
                                     {/* Card 1 */}
-                                    <section className="panel-card add-courses-card">
+                                    <GlassPanel as="section" className="panel-card add-courses-card">
                                         <div className="panel-card-header">
                                             <div className="title-with-info">
                                                 <h3>Add Courses</h3>
@@ -940,10 +941,10 @@ export default function App() {
                                         ))}
                                         </ul>
                                     </div>
-                                    </section>
+                                    </GlassPanel>
 
                                     {/* Card 2 */}
-                                    <section className="panel-card">
+                                    <GlassPanel as="section" className="panel-card">
                                         <div className="panel-card-header">
                                             <div className="title-with-info">
                                                 <h3>Generated Schedules</h3>
@@ -992,7 +993,7 @@ export default function App() {
                                                 </div>
                                             </div>
                                         ) : <p>No results yet.</p>}
-                                    </section>
+                                    </GlassPanel>
                                 </div>
                             </div>
                         </div>
@@ -1092,7 +1093,7 @@ export default function App() {
                 )}
                 
                 {activePage === "prefs" && <div className={`prefs-panel page-anim ${animOut ? 'anim-out' : ''} ${animIn ? 'anim-in' : ''}`}>
-                    <div className="panel prefs-panel">
+                    <GlassPanel as="div" className="panel prefs-panel">
                         <h4>Preferences</h4>
 
                         <div className="prefs-row">
@@ -1211,7 +1212,7 @@ export default function App() {
                             </div>
                         </div>
 
-                    </div>
+                    </GlassPanel>
                 </div>}
             </div>
         </div>

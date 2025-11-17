@@ -1,4 +1,32 @@
 /* ---------- Input, buttons, course list ---------- */
+/* Generic glass-panel wrapper for FluidGlass background */
+.glass-panel {
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+}
+
+.glass-panel-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.glass-panel-content {
+    position: relative;
+    z-index: 1;
+}
+
+/* In light mode, let FluidGlass own the background; keep underlying CSS as fallback for dark mode. */
+html:not(.dark-mode) .glass-panel {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+}
+
 .input-box {
     width: 100%;
     padding: 12px 16px;
@@ -119,15 +147,15 @@
 .course-list-container {
     flex: 1 1 auto;
     min-height: 0;
-    background: rgba(255, 255, 255, 0.2);
-    -webkit-backdrop-filter: blur(8px) saturate(140%);
-    backdrop-filter: blur(8px) saturate(140%);
-    border: 0.5px solid rgba(255,255,255,0.25);
+    background: rgba(255, 255, 255, 0.08);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 0.5px solid rgba(255,255,255,0.3);
     background-clip: padding-box;
     border-radius: 14px;
     padding: 12px 16px 12px 12px; /* extra right/left inset to avoid hover-clipping */
     overflow: hidden;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.16);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), inset 0 1px 2px rgba(255, 255, 255, 0.3);
 }
 .dark-mode .course-list-container {
     background: rgba(16, 16, 20, 0.28);
