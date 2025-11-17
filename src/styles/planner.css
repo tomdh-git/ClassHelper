@@ -13,20 +13,26 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    background: rgba(255, 255, 255, 0.66);
-    -webkit-backdrop-filter: blur(8px) saturate(140%);
-    backdrop-filter: blur(8px) saturate(140%);
+    position: relative;
+    background: rgba(255, 255, 255, 0.08);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
     border-radius: 20px;
     padding: 20px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.4);
     background-clip: padding-box;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.08);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14), inset 0 1px 2px rgba(255, 255, 255, 0.3);
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    overflow: hidden;
+    isolation: isolate;
+    background-image:
+        radial-gradient(circle at 15% 30%, rgba(255, 255, 255, 0.12), transparent 45%),
+        radial-gradient(circle at 85% 70%, rgba(255, 255, 255, 0.10), transparent 45%),
+        radial-gradient(ellipse 800px 400px at 50% -100px, rgba(255, 255, 255, 0.08), transparent 70%);
+    background-size: 100% 100%, 100% 100%, 100% 100%;
+    background-position: 0% 0%, 0% 0%, 0% 0%;
 }
 
-.left-panel:hover {
-    box-shadow: 0 20px 60px rgba(0,0,0,0.16);
-}
 
 .dark-mode .left-panel {
     background: rgba(6, 6, 8, 0.86);
@@ -67,23 +73,25 @@
     margin: 0 0 var(--card-gap) 0; /* visual gap between cards without shrinking visible card */
     padding: 20px;
     border-radius: 18px;
-    background: rgba(255, 255, 255, 0.66);
-    -webkit-backdrop-filter: blur(8px) saturate(140%);
-    backdrop-filter: blur(8px) saturate(140%);
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.08);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.4);
     background-clip: padding-box;
-    box-shadow: 0 16px 48px rgba(0,0,0,0.08);
-    overflow: visible; /* allow tooltips to escape */
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14), inset 0 1px 2px rgba(255, 255, 255, 0.3);
+    overflow: hidden; /* card itself is glass; contents scroll inside child containers */
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     display: flex;
     flex-direction: column;
     isolation: isolate;
+    background-image:
+        radial-gradient(circle at 20% 40%, rgba(255, 255, 255, 0.12), transparent 50%),
+        radial-gradient(circle at 80% 60%, rgba(255, 255, 255, 0.08), transparent 50%),
+        radial-gradient(ellipse 600px 350px at 50% -50px, rgba(255, 255, 255, 0.06), transparent 70%);
+    background-size: 100% 100%, 100% 100%, 100% 100%;
+    background-position: 0% 0%, 0% 0%, 0% 0%;
 }
 
-.panel-card:hover {
-    background: rgba(255, 255, 255, 0.66); /* keep same opacity, no extra transparency */
-    box-shadow: 0 20px 60px rgba(0,0,0,0.16);
-}
 
 .panel-card h3 {
     margin: 0 0 16px 0;
@@ -145,17 +153,26 @@
     align-items: center;
     justify-content: center;
     border-radius: 16px;
-    background: rgba(255,255,255,0.12);
-    -webkit-backdrop-filter: blur(8px) saturate(140%);
-    backdrop-filter: blur(8px) saturate(140%);
-    border: 0.5px solid rgba(255,255,255,0.15);
+    position: relative;
+    background: rgba(255,255,255,0.08);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 0.5px solid rgba(255,255,255,0.35);
     background-clip: padding-box;
-    box-shadow: 0 12px 40px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.1);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12), inset 0 1px 2px rgba(255, 255, 255, 0.3);
     padding: 20px;
     box-sizing: border-box;
     color: #1f2937;
     font-size: 1rem;
     text-align: center;
+    overflow: hidden;
+    isolation: isolate;
+    background-image:
+        radial-gradient(circle at 25% 25%, rgba(255, 255, 255, 0.12), transparent 45%),
+        radial-gradient(circle at 75% 75%, rgba(255, 255, 255, 0.08), transparent 45%),
+        radial-gradient(ellipse 500px 300px at 50% 50%, rgba(255, 255, 255, 0.06), transparent 70%);
+    background-size: 100% 100%, 100% 100%, 100% 100%;
+    background-position: 0% 0%, 0% 0%, 0% 0%;
 }
 
 .dark-mode .schedule-visual {
@@ -185,8 +202,8 @@
 .time-tick span { position: absolute; left: 0; transform: translateY(-50%); font-size: 12px; color: rgba(0,0,0,0.6); }
 .dark-mode .time-tick { border-top-color: rgba(255,255,255,0.12); }
 .dark-mode .time-tick span { color: rgba(255,255,255,0.75); }
- .day-col { position: relative; height: 100%; background: rgba(255,255,255,0.55); border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; overflow: hidden; }
-.dark-mode .day-col { background: rgba(12,12,14,0.4); border: 1px solid rgba(255,255,255,0.12); }
+.day-col { position: relative; height: 100%; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.3); border-radius: 12px; overflow: hidden; -webkit-backdrop-filter: blur(16px) saturate(140%); backdrop-filter: blur(16px) saturate(140%); }
+.dark-mode .day-col { background: rgba(12,12,18,0.56); border: 1px solid rgba(255,255,255,0.22); }
 .event-block { position: absolute; left: 6px; right: 6px; border-radius: 12px; background: var(--ev-bg); border: 1px solid var(--ev-border); color: var(--ev-fg); box-shadow: 0 6px 16px rgba(0,0,0,0.12); padding: 6px 8px; display: flex; flex-direction: column; justify-content: center; gap: 2px; box-sizing: border-box; min-height: 18px; will-change: transform, opacity; animation: evIn 320ms cubic-bezier(0.4,0,0.2,1) both; animation-delay: var(--ev-delay, 0ms); }
 .event-title { font-weight: 800; font-size: 0.85rem; letter-spacing: 0.2px; }
  .event-time { font-size: 0.75rem; opacity: 0.9; }
