@@ -295,6 +295,8 @@ export default function App() {
         }
     };
 
+    const toGqlStringArray = (arr = []) => `[${arr.map((val) => JSON.stringify(val)).join(", ")}]`;
+
     const getSchedules = async () => {
         setLastError(null);
         if (!(await checkAlive())) return;
@@ -312,8 +314,8 @@ export default function App() {
         const buildScheduleQuery = () => `
         query {
           getScheduleByCourses(
-            courses: [${courseVals.map(c => `\"${c}\"`).join(",")}]
-            campus: [${campus.map(c => `\"${c}\"`).join(",")}]
+            courses: ${toGqlStringArray(courseVals)}
+            campus: ${toGqlStringArray(campus)}
             term: \"${term}\"\r
             optimizeFreeTime: ${optimizeFreeTime}
             ${baseTimeLines}
@@ -328,14 +330,14 @@ export default function App() {
         const buildFillerQuery = () => `
         query {
           getFillerByAttributes(
-            attributes: [${fillerAttrUnion.map(a => `\"${a}\"`).join(",")}]
-            courses: [${courseVals.map(c => `\"${c}\"`).join(",")}]
-            campus: [${campus.map(c => `\"${c}\"`).join(",")}]
+            attributes: ${toGqlStringArray(fillerAttrUnion)}
+            courses: ${toGqlStringArray(courseVals)}
+            campus: ${toGqlStringArray(campus)}
             term: \"${term}\"\r
             ${baseTimeLines}
           ) {
             ... on SuccessSchedule {
-              schedules { courses { subject courseNum crn } ${freeTimeFields} }
+              schedules { courses { subject courseNum crn delivery } ${freeTimeFields} }
             }
             ... on ErrorSchedule { error message }
           }
