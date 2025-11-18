@@ -8,13 +8,21 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-    background: transparent; /* spaces between panels are true OS transparency */
+    position: relative;
     border-radius: 24px; /* rounded window edges */
     overflow: hidden;
     transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    background: rgba(255, 255, 255, 0.05);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 1;
 }
 
-.dark-mode .glass-container { background: transparent; }
+.dark-mode .glass-container {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
 
 /* ---------- Splash overlay ---------- */
 .splash-overlay {

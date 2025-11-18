@@ -3,6 +3,7 @@ import InfoTip from "./components/common/InfoTip";
 import { Range, getTrackBackground } from "react-range";
 import "./styles/index.css";
 import { IoClose, IoChevronUp, IoChevronDown, IoSunny, IoMoon } from "react-icons/io5";
+import FluidGlassBackground from "./components/FluidGlassBackground";
 
 const BASE_URL = "https://courseapi-production-3751.up.railway.app";
 const GRAPHQL_URL = `${BASE_URL}/graphql`;
@@ -772,6 +773,7 @@ export default function App() {
 
     return (
         <div ref={appRef} className={`app-wrapper ${darkMode ? "dark-mode" : ""}`}>
+            <FluidGlassBackground darkMode={darkMode} />
             <div className="glass-container">
                 {showSplash && (
                     <div className="splash-overlay">

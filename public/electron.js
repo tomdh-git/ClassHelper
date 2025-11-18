@@ -13,8 +13,71 @@ function getConfigPath() {
     return path.join(baseDir, CONFIG_NAME);
 }
 
+let splashWindow = null;
+let mainWindow = null;
+
+function createSplashWindow() {
+    // Read config synchronously to determine theme
+    let isDark = true;
+    try {
+        const p = getConfigPath();
+        if (fs.existsSync(p)) {
+            const raw = fs.readFileSync(p, 'utf-8');
+            const cfg = JSON.parse(raw);
+            if (cfg && cfg.darkMode === false) {
+                isDark = false;
+            }
+        }
+    } catch (e) {
+        // Default to dark
+    }
+
+    splashWindow = new BrowserWindow({
+        width: 400,
+        height: 300,
+        frame: false,
+        transparent: false,
+        backgroundColor: isDark ? '#050509' : '#f5f5f7',
+        alwaysOnTop: true,
+        skipTaskbar: false,
+        resizable: false,
+        show: true, // Show immediately - window appears instantly
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: false,
+            webSecurity: false,
+            backgroundThrottling: false, // Don't throttle background
+        }
+    });
+
+    splashWindow.center();
+
+    const isDev = !app.isPackaged;
+    const splashPath = isDev ? path.join(__dirname, 'splash.html') : path.join(__dirname, 'splash.html');
+    
+    splashWindow.loadFile(splashPath);
+    
+    // Inject theme information after DOM is ready
+    splashWindow.webContents.once('dom-ready', () => {
+        splashWindow.webContents.executeJavaScript(`
+            (function() {
+                const isDark = ${isDark};
+                if (!isDark) {
+                    document.body.classList.add('light-theme');
+                    document.getElementById('splashLogo').src = './assets/img/logo_light.png';
+                } else {
+                    document.getElementById('splashLogo').src = './assets/img/logo_dark.png';
+                }
+            })();
+        `);
+    });
+    splashWindow.on('closed', () => {
+        splashWindow = null;
+    });
+}
+
 function createWindow() {
-    const win = new BrowserWindow({
+    mainWindow = new BrowserWindow({
         width: 1000,
         height: 680,
         minWidth: 900,
@@ -24,6 +87,7 @@ function createWindow() {
         backgroundColor: '#00000000',
         roundedCorners: true,
         autoHideMenuBar: true,
+        show: false, // Don't show until ready
         webPreferences: {
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js'),
@@ -38,16 +102,36 @@ function createWindow() {
 
     const isDev = !app.isPackaged;
     if (isDev) {
-        win.loadURL('http://localhost:3000');
+        mainWindow.loadURL('http://localhost:3000');
     } else {
         // In production, this file lives alongside electron.js inside the build folder within app.asar
         const indexPath = path.join(__dirname, 'index.html');
-        win.loadFile(indexPath);
+        mainWindow.loadFile(indexPath);
     }
 
     // Ensure menu stays hidden (no toolbar)
-    win.setMenuBarVisibility(false);
-    win.setBackgroundColor('#00000000');
+    mainWindow.setMenuBarVisibility(false);
+    mainWindow.setBackgroundColor('#00000000');
+
+    // Show window and close splash when ready
+    mainWindow.once('ready-to-show', () => {
+        if (splashWindow) {
+            setTimeout(() => {
+                if (splashWindow) {
+                    splashWindow.close();
+                }
+                if (mainWindow) {
+                    mainWindow.show();
+                }
+            }, 500); // Small delay for smooth transition
+        } else {
+            mainWindow.show();
+        }
+    });
+
+    mainWindow.on('closed', () => {
+        mainWindow = null;
+    });
 }
 
 // IPC for config read/write
@@ -112,12 +196,21 @@ ipcMain.on('config:read-sync', (event) => {
     }
 });
 
-app.whenReady().then(createWindow);
+// Show splash window immediately when app is ready
+app.whenReady().then(() => {
+    // Create and show splash first (instant)
+    createSplashWindow();
+    // Then create main window (hidden until ready)
+    createWindow();
+});
 
 app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    if (BrowserWindow.getAllWindows().length === 0) {
+        createSplashWindow();
+        createWindow();
+    }
 });

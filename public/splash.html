@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClassHelper</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #050509 0%, #1a1a1f 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            color: #fff;
+            overflow: hidden;
+            position: relative;
+        }
+        body::before,
+        body::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.5;
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::before {
+            width: 400px;
+            height: 400px;
+            background: linear-gradient(135deg, rgba(255, 59, 48, 0.4) 0%, rgba(255, 127, 127, 0.3) 100%);
+            top: -150px;
+            left: -150px;
+            animation: splashFluid1 18s ease-in-out infinite;
+        }
+        body::after {
+            width: 350px;
+            height: 350px;
+            background: linear-gradient(135deg, rgba(255, 127, 127, 0.3) 0%, rgba(255, 59, 48, 0.4) 100%);
+            bottom: -100px;
+            right: -100px;
+            animation: splashFluid2 22s ease-in-out infinite;
+        }
+        @keyframes splashFluid1 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(80px, 120px) scale(1.1); }
+            66% { transform: translate(-40px, 150px) scale(0.9); }
+        }
+        @keyframes splashFluid2 {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(-100px, -80px) scale(1.15); }
+            66% { transform: translate(60px, -120px) scale(0.85); }
+        }
+        body.light-theme {
+            background: linear-gradient(135deg, #f5f5f7 0%, #ffffff 100%);
+            color: #1f2937;
+        }
+        body.light-theme::before {
+            background: linear-gradient(135deg, rgba(255, 59, 48, 0.25) 0%, rgba(255, 127, 127, 0.2) 100%);
+            opacity: 0.4;
+        }
+        body.light-theme::after {
+            background: linear-gradient(135deg, rgba(255, 127, 127, 0.2) 0%, rgba(255, 59, 48, 0.25) 100%);
+            opacity: 0.4;
+        }
+        .splash-content {
+            text-align: center;
+            z-index: 10;
+            position: relative;
+            background: rgba(255, 255, 255, 0.05);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 40px 50px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        body.light-theme .splash-content {
+            background: rgba(255, 255, 255, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        .splash-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            object-fit: contain;
+            filter: drop-shadow(0 4px 16px rgba(255, 59, 48, 0.4));
+        }
+        .splash-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #ff9f9f 0%, #ff453a 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .splash-subtitle {
+            font-size: 0.95rem;
+            opacity: 0.7;
+            margin-bottom: 32px;
+        }
+        .light-theme .splash-subtitle {
+            opacity: 0.6;
+        }
+        .loading-container {
+            width: 280px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            overflow: hidden;
+            margin: 0 auto;
+            position: relative;
+        }
+        .loading-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ff7f7f 0%, #ff3b30 100%);
+            border-radius: 999px;
+            box-shadow: 0 0 12px rgba(255, 59, 48, 0.6);
+            transition: width 0.3s ease;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+    </style>
+</head>
+<body>
+    <div class="splash-content">
+        <img id="splashLogo" class="splash-logo" src="./assets/img/logo_dark.png" alt="ClassHelper" />
+        <h1 class="splash-title">ClassHelper</h1>
+        <p class="splash-subtitle">Loading application...</p>
+        <div class="loading-container">
+            <div class="loading-bar" id="loadingBar"></div>
+        </div>
+    </div>
+    <script>
+        // Theme will be set by Electron via executeJavaScript
+        // Default to dark theme until Electron injects the correct theme
+        // This ensures the logo is set correctly
+        
+        // Simulate loading progress
+        let progress = 0;
+        const loadingBar = document.getElementById('loadingBar');
+        const interval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) progress = 90; // Cap at 90% until ready
+            loadingBar.style.width = progress + '%';
+        }, 150);
+    </script>
+</body>
+</html>
+

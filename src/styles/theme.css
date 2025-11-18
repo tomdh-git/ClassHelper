@@ -33,6 +33,12 @@ html, body, .app-wrapper, * {
     clip-path: inset(0 round 20px);
 }
 
+.app-wrapper > div:first-child {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+
 /* Remove any overlay so spaces between panels are truly OS-transparent */
 .app-wrapper::before { content: none !important; }
 

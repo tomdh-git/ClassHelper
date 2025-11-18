@@ -4,16 +4,20 @@
   "private": true,
   "homepage": "./",
   "dependencies": {
+    "@react-three/drei": "^9.122.0",
+    "@react-three/fiber": "^8.18.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^13.5.0",
     "concurrently": "^9.2.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
+    "maath": "^0.10.8",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-icons": "^5.5.0",
     "react-range": "^1.10.0",
     "react-scripts": "5.0.1",
+    "three": "^0.169.0",
     "wait-on": "^9.0.1",
     "web-vitals": "^2.1.4"
   },
@@ -26,10 +30,16 @@
     "files": [
       "build/**/*",
       "public/electron.js",
-      "public/preload.js"
+      "public/preload.js",
+      "public/splash.html"
     ],
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "build/icon.ico"
+    },
+    "icon": "build/icon.png",
+    "electronDownload": {
+      "cache": "./.electron-cache"
     }
   },
   "scripts": {
@@ -38,7 +48,7 @@
     "eject": "react-scripts eject",
     "react-start": "react-scripts start",
     "electron-start": "concurrently \"npm run react-start\" \"wait-on http://localhost:3000 && electron .\"",
-    "build": "react-scripts build && node scripts/postbuild.cjs",
+    "build": "cross-env GENERATE_SOURCEMAP=false INLINE_RUNTIME_CHUNK=false react-scripts build && node scripts/postbuild.cjs",
     "dist": "npm run build && electron-builder"
   },
   "eslintConfig": {
@@ -60,6 +70,7 @@
     ]
   },
   "devDependencies": {
+    "cross-env": "^7.0.3",
     "electron": "^39.0.0",
     "electron-builder": "^26.0.12"
   }
