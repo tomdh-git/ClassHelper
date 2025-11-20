@@ -77,10 +77,10 @@ export default function App() {
         notify("Filler added to planner", "info");
     };
 
+    const [delivery, setDelivery] = useState(["Face2Face"]); // allow multi-select (e.g., ["O", "M"]) or ["All"]
     const [campus, setCampus] = useState(["O"]); // allow multi-select (e.g., ["O", "M"]) or ["All"]
     const [term, setTerm] = useState("202620");
     const [optimizeFreeTime, setOptimizeFreeTime] = useState(true);
-    const [ignoreWeb, setIgnoreWeb] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const appRef = useRef(null);
@@ -328,8 +328,17 @@ export default function App() {
                 : [...filtered, code];
         });
     };
-
     const isCampusSelected = (code) => campus.includes(code);
+
+    const toggleDelivery = (code) => {
+        setDelivery((prev) => {
+            const filtered = prev.filter((c) => c !== "All");
+            return filtered.includes(code)
+                ? filtered.filter((c) => c !== code)
+                : [...filtered, code];
+        });
+    };
+    const isDeliverySelected = (code) => delivery.includes(code);
 
     const removeCourse = (i) => setCourses(courses.filter((_, idx) => idx !== i));
 
@@ -372,17 +381,18 @@ export default function App() {
         const fillerAttrUnion = Array.from(new Set(
             courses.filter(c => c.type === 'filler').flatMap(c => c.attrs || [])
         ));
-        const baseTimeLines = optimizeFreeTime ? `preferredStart: \"${formatTimeForQuery(timeRange[0])}\"\r
-            preferredEnd: \"${formatTimeForQuery(timeRange[1])}\"` : "";
+        const baseTimeLines = optimizeFreeTime ? `preferredStart: "${formatTimeForQuery(timeRange[0])}"\r
+            preferredEnd: "${formatTimeForQuery(timeRange[1])}"` : "";
 
         const buildScheduleQuery = () => `
         query {
           getScheduleByCourses(
             courses: ${toGqlStringArray(courseVals)}
             campus: ${toGqlStringArray(campus)}
-            term: \"${term}\"\r
+            term: "${term}"\r
             optimizeFreeTime: ${optimizeFreeTime}
             ${baseTimeLines}
+            delivery: ${toGqlStringArray(delivery)}
           ) {
             ... on SuccessSchedule {
               schedules { courses { subject courseNum crn delivery } ${freeTimeFields} }
@@ -397,9 +407,9 @@ export default function App() {
             attributes: ${toGqlStringArray(fillerAttrUnion)}
             courses: ${toGqlStringArray(courseVals)}
             campus: ${toGqlStringArray(campus)}
-            term: \"${term}\"\r
+            term: "${term}"\r
             ${baseTimeLines}
-            ignoreWeb: ${ignoreWeb}
+            delivery: ${toGqlStringArray(delivery)}
           ) {
             ... on SuccessSchedule {
               schedules { courses { subject courseNum crn delivery } ${freeTimeFields} }
@@ -410,6 +420,7 @@ export default function App() {
 
         const isFillerMode = fillerAttrUnion.length > 0;
         const query = isFillerMode ? buildFillerQuery() : buildScheduleQuery();
+        console.log(query);
 
         // Helpers to process large result sets
         const schedKey = (s) => {
@@ -488,7 +499,7 @@ export default function App() {
             setTimeout(() => scrollSnapBy(1), 140);
         } catch (e) {
             setLastError("Failed to fetch");
-            notify(`Generate error: ${String(e && e.message || e)}`, 'error', 6000);
+            notify(`Generate error: ${String((e && e.message) || e)}`, 'error', 6000);
         } finally {
             setLoading(false);
             setIsGenerating(false);
@@ -840,7 +851,6 @@ export default function App() {
                 if (Array.isArray(cfg.campus)) setCampus(cfg.campus);
                 if (typeof cfg.term === 'string') setTerm(cfg.term);
                 if (typeof cfg.optimizeFreeTime === 'boolean') setOptimizeFreeTime(cfg.optimizeFreeTime);
-                if (typeof cfg.ignoreWeb === 'boolean') setIgnoreWeb(cfg.ignoreWeb);
                 if (typeof cfg.darkMode === 'boolean') setDarkMode(cfg.darkMode);
                 if (Array.isArray(cfg.timeRange) && cfg.timeRange.length === 2) setTimeRange(cfg.timeRange);
                 if (Array.isArray(cfg.courses)) setCourses(cfg.courses);
@@ -858,7 +868,6 @@ export default function App() {
                     campus,
                     term,
                     optimizeFreeTime,
-                    ignoreWeb,
                     darkMode,
                     timeRange,
                     courses,
@@ -886,14 +895,14 @@ export default function App() {
     const prevCfgRef = useRef(null);
     useEffect(() => {
         if (!hydratedRef.current) return;
-        const cfg = { campus, term, optimizeFreeTime, ignoreWeb, darkMode, timeRange, courses, fillerAttrs, activePage };
+        const cfg = { campus, term, optimizeFreeTime, darkMode, timeRange, courses, fillerAttrs, activePage };
         const prev = prevCfgRef.current ? JSON.stringify(prevCfgRef.current) : null;
         const cur = JSON.stringify(cfg);
         if (prev !== cur) {
             prevCfgRef.current = cfg;
             writeConfigBridge(cfg);
         }
-    }, [campus, term, optimizeFreeTime, ignoreWeb, darkMode, timeRange, courses, fillerAttrs, activePage]);
+    }, [campus, term, optimizeFreeTime, darkMode, timeRange, courses, fillerAttrs, activePage]);
 
     // (Removed proactive dirtying/snapping; we now decide only on Planner nav)
 
@@ -1292,6 +1301,35 @@ export default function App() {
 
                         <div className="prefs-row">
                             <span>
+                                Types of Courses
+                                <div className="info-container">
+<InfoTip isDark={darkMode} content={<span>Select which type of classes you want in your schedule. (Online, In-Person)</span>} />
+                                </div>
+                            </span>
+                            <div className="choice-group multi">
+                                {[
+                                    { label: "In-Person", code: "Face2Face" },
+                                    { label: "Online Synchronous", code: "ONLS" },
+                                    { label: "Online Asynchronous", code: "ONLA" },
+                                    { label: "Hybrid Synchronous", code: "HYBS" },
+                                    { label: "Hybrid Asynchronous", code: "HYBA" },
+                                    { label: "Interactive Video", code: "IVDL" },
+                                    { label: "Study Abroad", code: "SA" },
+                                    { label: "Study Away", code: "AWAY" },
+                                ].map((opt) => (
+                                    <button
+                                        key={opt.code}
+                                        className={`choice-button ${isDeliverySelected(opt.code) ? 'selected' : ''}`}
+                                        onClick={() => toggleDelivery(opt.code)}
+                                    >
+                                        {opt.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="prefs-row">
+                            <span>
                                 Term
                                 <div className="info-container">
 <InfoTip isDark={darkMode} content={<span>Choose a single academic term.</span>} />
@@ -1335,19 +1373,6 @@ export default function App() {
                             </span>
                             <label className="switch">
                                 <input type="checkbox" checked={optimizeFreeTime} onChange={() => setOptimizeFreeTime(!optimizeFreeTime)} />
-                                <span className="slider round" />
-                            </label>
-                        </div>
-
-                        <div className="switch-container">
-                            <span>
-                                Ignore Web Courses
-                                <div className="info-container">
-<InfoTip isDark={darkMode} content={<span>When enabled, filler course searches will exclude web-based courses.</span>} />
-                                </div>
-                            </span>
-                            <label className="switch">
-                                <input type="checkbox" checked={ignoreWeb} onChange={() => setIgnoreWeb(!ignoreWeb)} />
                                 <span className="slider round" />
                             </label>
                         </div>

@@ -240,6 +240,8 @@
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+    justify-content: right;
+    width: 70%;
 }
 
 .choice-button {
