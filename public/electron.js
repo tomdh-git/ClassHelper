@@ -5,6 +5,18 @@ const fs = require('fs');
 // Relax CORS in renderer to allow cross-origin requests from file:// origin
 app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
 
+// LeviLauncher-style optimizations for instant startup
+// Disable unnecessary features that slow down startup
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-ipc-flooding-protection');
+// Faster startup optimizations
+app.commandLine.appendSwitch('disable-dev-shm-usage');
+app.commandLine.appendSwitch('disable-gpu-vsync');
+// Enable faster initialization
+app.commandLine.appendSwitch('enable-features', 'NetworkService,NetworkServiceInProcess');
+
 const CONFIG_NAME = 'classhelper.config.json';
 
 function getConfigPath() {
@@ -13,70 +25,21 @@ function getConfigPath() {
     return path.join(baseDir, CONFIG_NAME);
 }
 
-let splashWindow = null;
 let mainWindow = null;
 
-function createSplashWindow() {
-    // Read config synchronously to determine theme
-    let isDark = true;
+function createWindow() {
+    // Set app icon to dark mode logo (already copied by postbuild script)
+    const iconPath = path.join(__dirname, 'icon.png');
+    
+    // Try to set dock icon on macOS if available
     try {
-        const p = getConfigPath();
-        if (fs.existsSync(p)) {
-            const raw = fs.readFileSync(p, 'utf-8');
-            const cfg = JSON.parse(raw);
-            if (cfg && cfg.darkMode === false) {
-                isDark = false;
-            }
+        if (fs.existsSync(iconPath) && app.dock) {
+            app.dock.setIcon(iconPath);
         }
     } catch (e) {
-        // Default to dark
+        // Icon setting is optional
     }
 
-    splashWindow = new BrowserWindow({
-        width: 400,
-        height: 300,
-        frame: false,
-        transparent: false,
-        backgroundColor: isDark ? '#050509' : '#f5f5f7',
-        alwaysOnTop: true,
-        skipTaskbar: false,
-        resizable: false,
-        show: true, // Show immediately - window appears instantly
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: false,
-            webSecurity: false,
-            backgroundThrottling: false, // Don't throttle background
-        }
-    });
-
-    splashWindow.center();
-
-    const isDev = !app.isPackaged;
-    const splashPath = isDev ? path.join(__dirname, 'splash.html') : path.join(__dirname, 'splash.html');
-    
-    splashWindow.loadFile(splashPath);
-    
-    // Inject theme information after DOM is ready
-    splashWindow.webContents.once('dom-ready', () => {
-        splashWindow.webContents.executeJavaScript(`
-            (function() {
-                const isDark = ${isDark};
-                if (!isDark) {
-                    document.body.classList.add('light-theme');
-                    document.getElementById('splashLogo').src = './assets/img/logo_light.png';
-                } else {
-                    document.getElementById('splashLogo').src = './assets/img/logo_dark.png';
-                }
-            })();
-        `);
-    });
-    splashWindow.on('closed', () => {
-        splashWindow = null;
-    });
-}
-
-function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1000,
         height: 680,
@@ -87,7 +50,8 @@ function createWindow() {
         backgroundColor: '#00000000',
         roundedCorners: true,
         autoHideMenuBar: true,
-        show: false, // Don't show until ready
+        show: true, // Show immediately for fastest startup
+        icon: fs.existsSync(iconPath) ? iconPath : undefined, // Set window icon if available
         webPreferences: {
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.js'),
@@ -113,19 +77,10 @@ function createWindow() {
     mainWindow.setMenuBarVisibility(false);
     mainWindow.setBackgroundColor('#00000000');
 
-    // Show window and close splash when ready
+    // Window already showing, just ensure it's focused when ready
     mainWindow.once('ready-to-show', () => {
-        if (splashWindow) {
-            setTimeout(() => {
-                if (splashWindow) {
-                    splashWindow.close();
-                }
-                if (mainWindow) {
-                    mainWindow.show();
-                }
-            }, 500); // Small delay for smooth transition
-        } else {
-            mainWindow.show();
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.focus();
         }
     });
 
@@ -196,11 +151,8 @@ ipcMain.on('config:read-sync', (event) => {
     }
 });
 
-// Show splash window immediately when app is ready
+// Load main window immediately - no splash screen for fastest startup
 app.whenReady().then(() => {
-    // Create and show splash first (instant)
-    createSplashWindow();
-    // Then create main window (hidden until ready)
     createWindow();
 });
 
@@ -210,7 +162,6 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-        createSplashWindow();
         createWindow();
     }
 });

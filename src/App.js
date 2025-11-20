@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import InfoTip from "./components/common/InfoTip";
 import { Range, getTrackBackground } from "react-range";
 import "./styles/index.css";
-import { IoClose, IoChevronUp, IoChevronDown, IoSunny, IoMoon } from "react-icons/io5";
+import { IoClose, IoChevronUp, IoChevronDown, IoSunny, IoMoon, IoRefresh } from "react-icons/io5";
 import FluidGlassBackground from "./components/FluidGlassBackground";
 
 const BASE_URL = "https://courseapi-production-3751.up.railway.app";
@@ -17,6 +17,12 @@ export default function App() {
     const [input, setInput] = useState("");
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [generateCooldown, setGenerateCooldown] = useState(false);
+    const [searchCooldown, setSearchCooldown] = useState(false);
+    const generateCooldownRef = useRef(false);
+    const searchCooldownRef = useRef(false);
+    const generateCooldownTimeoutRef = useRef(null);
+    const searchCooldownTimeoutRef = useRef(null);
     const [lastError, setLastError] = useState(null);
 
     // Search state
@@ -74,6 +80,7 @@ export default function App() {
     const [campus, setCampus] = useState(["O"]); // allow multi-select (e.g., ["O", "M"]) or ["All"]
     const [term, setTerm] = useState("202620");
     const [optimizeFreeTime, setOptimizeFreeTime] = useState(true);
+    const [ignoreWeb, setIgnoreWeb] = useState(false);
     const [darkMode, setDarkMode] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const appRef = useRef(null);
@@ -201,35 +208,79 @@ export default function App() {
     };
     const extractMeetings = (c) => {
         if (!c) return [];
+        const allMeetings = [];
+
+        // First, check for array of meetings (handles multiple meeting times)
         if (Array.isArray(c.meetings)) {
-            return c.meetings.map(m => ({ day: dayCodeToName(m.day || m.d || m.D), start: parseTimeStr(m.start || m.s), end: parseTimeStr(m.end || m.e) }))
-                .filter(m => Number.isFinite(m.start) && Number.isFinite(m.end));
+            const parsed = c.meetings.map(m => ({
+                day: dayCodeToName(m.day || m.d || m.D),
+                start: parseTimeStr(m.start || m.s),
+                end: parseTimeStr(m.end || m.e)
+            })).filter(m => Number.isFinite(m.start) && Number.isFinite(m.end));
+            allMeetings.push(...parsed);
         }
+
+        // Also check for single days/start/end fields (might be a separate meeting)
         const days = c.days || c.meetingDays || c.DayPattern;
         const start = c.start || c.startTime || c.timeStart;
         const end = c.end || c.endTime || c.timeEnd;
         if (days && (start || end)) {
             const startMin = parseTimeStr(start);
             const endMin = parseTimeStr(end);
-            if (!Number.isFinite(startMin) || !Number.isFinite(endMin)) return [];
-            return expandDays(days).map(d => ({ day: d, start: startMin, end: endMin }));
+            if (Number.isFinite(startMin) && Number.isFinite(endMin)) {
+                const parsed = expandDays(days).map(d => ({ day: d, start: startMin, end: endMin }));
+                // Only add if not already in allMeetings (avoid duplicates)
+                for (const p of parsed) {
+                    const exists = allMeetings.some(m =>
+                        m.day === p.day && m.start === p.start && m.end === p.end
+                    );
+                    if (!exists) allMeetings.push(p);
+                }
+            }
         }
-        // Try to parse from delivery string like: "MW 10:30am-12:30pm WEB 01/02 - 01/16" or "WEB 01/02 - 01/23"
+
+        // Try to parse from delivery string - handle multiple time patterns
         const delivery = c.delivery || c.Delivery || '';
         const dlc = String(delivery).trim();
-        const dm = dlc.match(/^\s*([MTWRFSU]+)/i);
-        const tm = dlc.match(/(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*-\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m)/i);
-        if (dm && tm) {
-            const dpat = dm[1].toUpperCase();
-            const s = `${tm[1]}${tm[2] ? ':'+tm[2] : ''}${tm[3].toLowerCase()}`;
-            const e = `${tm[4]}${tm[5] ? ':'+tm[5] : ''}${tm[6].toLowerCase()}`;
+
+        // Match multiple time patterns in delivery string (e.g., "MWF 10:30am-11:20am MWF 1:15pm-2:10pm")
+        const timePatterns = dlc.matchAll(/([MTWRFSU]+)\s+(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*-\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m)/gi);
+        for (const match of timePatterns) {
+            const dpat = match[1].toUpperCase();
+            const s = `${match[2]}${match[3] ? ':'+match[3] : ''}${match[4].toLowerCase()}`;
+            const e = `${match[5]}${match[6] ? ':'+match[6] : ''}${match[7].toLowerCase()}`;
             const startMin = parseTimeStr(s);
             const endMin = parseTimeStr(e);
             if (Number.isFinite(startMin) && Number.isFinite(endMin)) {
-                return expandDays(dpat).map(d => ({ day: d, start: startMin, end: endMin }));
+                const parsed = expandDays(dpat).map(d => ({ day: d, start: startMin, end: endMin }));
+                // Only add if not already in allMeetings
+                for (const p of parsed) {
+                    const exists = allMeetings.some(m =>
+                        m.day === p.day && m.start === p.start && m.end === p.end
+                    );
+                    if (!exists) allMeetings.push(p);
+                }
             }
         }
-        return [];
+
+        // Also try single pattern match for backward compatibility
+        if (allMeetings.length === 0) {
+            const dm = dlc.match(/^\s*([MTWRFSU]+)/i);
+            const tm = dlc.match(/(\d{1,2})(?::(\d{2}))?\s*([ap]m)\s*-\s*(\d{1,2})(?::(\d{2}))?\s*([ap]m)/i);
+            if (dm && tm) {
+                const dpat = dm[1].toUpperCase();
+                const s = `${tm[1]}${tm[2] ? ':'+tm[2] : ''}${tm[3].toLowerCase()}`;
+                const e = `${tm[4]}${tm[5] ? ':'+tm[5] : ''}${tm[6].toLowerCase()}`;
+                const startMin = parseTimeStr(s);
+                const endMin = parseTimeStr(e);
+                if (Number.isFinite(startMin) && Number.isFinite(endMin)) {
+                    const parsed = expandDays(dpat).map(d => ({ day: d, start: startMin, end: endMin }));
+                    allMeetings.push(...parsed);
+                }
+            }
+        }
+
+        return allMeetings;
     };
 
     const parseDeliveryDays = (s) => {
@@ -299,8 +350,20 @@ export default function App() {
     const toGqlStringArray = (arr = []) => `[${arr.map((val) => JSON.stringify(val)).join(", ")}]`;
 
     const getSchedules = async () => {
+        // Check cooldown
+        if (generateCooldownRef.current) return;
+
         setLastError(null);
         if (!(await checkAlive())) return;
+
+        // Clear any existing timeout
+        if (generateCooldownTimeoutRef.current) {
+            clearTimeout(generateCooldownTimeoutRef.current);
+        }
+
+        // Set cooldown
+        generateCooldownRef.current = true;
+        setGenerateCooldown(true);
 
         const freeTimeFields = optimizeFreeTime ? "freeTime" : "";
         const courseVals = courses
@@ -336,6 +399,7 @@ export default function App() {
             campus: ${toGqlStringArray(campus)}
             term: \"${term}\"\r
             ${baseTimeLines}
+            ignoreWeb: ${ignoreWeb}
           ) {
             ... on SuccessSchedule {
               schedules { courses { subject courseNum crn delivery } ${freeTimeFields} }
@@ -364,6 +428,7 @@ export default function App() {
             return out;
         };
 
+        let schedulesProc;
         try {
             setLoading(true);
             setIsGenerating(true);
@@ -379,7 +444,7 @@ export default function App() {
             try { data = JSON.parse(rawText); } catch { data = { parseError: true, raw: rawText }; }
             const key = fillerAttrUnion.length > 0 ? 'getFillerByAttributes' : 'getScheduleByCourses';
             let node = data?.data?.[key] || null;
-            let schedulesProc = Array.isArray(node?.schedules) ? node.schedules : [];
+            schedulesProc = Array.isArray(node?.schedules) ? node.schedules : [];
 
             // If HTTP not ok or union is error or 0 schedules, try main-process fetch fallback (Electron only)
             const shouldFallback = !res.ok || (node && node.error) || schedulesProc.length === 0;
@@ -427,6 +492,26 @@ export default function App() {
         } finally {
             setLoading(false);
             setIsGenerating(false);
+
+            // Clear any existing timeout
+            if (generateCooldownTimeoutRef.current) {
+                clearTimeout(generateCooldownTimeoutRef.current);
+            }
+
+            // Check if we got results (use schedulesProc from the try block scope)
+            const hasResults = schedulesProc && schedulesProc.length > 0;
+
+            if (hasResults) {
+                // Clear cooldown immediately if results returned
+                generateCooldownRef.current = false;
+                setGenerateCooldown(false);
+            } else {
+                // Reset cooldown after 8 seconds if no results
+                generateCooldownTimeoutRef.current = setTimeout(() => {
+                    generateCooldownRef.current = false;
+                    setGenerateCooldown(false);
+                }, 8000);
+            }
         }
     };
 
@@ -445,10 +530,28 @@ export default function App() {
     };
 
     const searchByCRN = async () => {
+        // Check cooldown
+        if (searchCooldownRef.current) return;
+
         setLastError(null);
         if (!(await checkAlive())) return;
+
+        // Clear any existing timeout
+        if (searchCooldownTimeoutRef.current) {
+            clearTimeout(searchCooldownTimeoutRef.current);
+        }
+
+        // Set cooldown
+        searchCooldownRef.current = true;
+        setSearchCooldown(true);
         const crn = parseInt(crnInput, 10);
-        if (Number.isNaN(crn)) { setLastError("Enter a numeric CRN"); return; }
+        if (Number.isNaN(crn)) {
+            // Clear cooldown if validation fails
+            searchCooldownRef.current = false;
+            setSearchCooldown(false);
+            setLastError("Enter a numeric CRN");
+            return;
+        }
         const query = `
         query {
           getCourseByCRN(
@@ -461,12 +564,14 @@ export default function App() {
             ... on ErrorCourse { error message }
           }
         }`;
+        let list = [];
         try {
             setLoading(true);
+            setSearchResults([]); // Clear previous results while loading
             const res = await fetch(GRAPHQL_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) });
             const data = await res.json();
             const node = data?.data?.getCourseByCRN;
-            const list = node?.courses ?? [];
+            list = node?.courses ?? [];
             if (list.length === 0) {
                 notify(node?.message || "No results found", "error");
             }
@@ -474,12 +579,45 @@ export default function App() {
         } catch {
             setLastError("Search failed");
             notify("Search failed", "error");
-        } finally { setLoading(false); }
+        } finally {
+            setLoading(false);
+
+            // Clear any existing timeout
+            if (searchCooldownTimeoutRef.current) {
+                clearTimeout(searchCooldownTimeoutRef.current);
+            }
+
+            // Clear cooldown immediately if results returned, otherwise after 2 seconds
+            if (list.length > 0) {
+                searchCooldownRef.current = false;
+                setSearchCooldown(false);
+                // Scroll to results card
+                setTimeout(() => searchScrollSnapBy(1), 100);
+            } else {
+                // Reset cooldown after 2 seconds if no results
+                searchCooldownTimeoutRef.current = setTimeout(() => {
+                    searchCooldownRef.current = false;
+                    setSearchCooldown(false);
+                }, 2000);
+            }
+        }
     };
 
     const searchByInfo = async () => {
+        // Check cooldown
+        if (searchCooldownRef.current) return;
+
         setLastError(null);
         if (!(await checkAlive())) return;
+
+        // Clear any existing timeout
+        if (searchCooldownTimeoutRef.current) {
+            clearTimeout(searchCooldownTimeoutRef.current);
+        }
+
+        // Set cooldown
+        searchCooldownRef.current = true;
+        setSearchCooldown(true);
         const m = courseSearchInput.trim().match(/^([A-Za-z]{2,4})\s+([A-Za-z0-9]+)$/);
         if (!m) { setLastError("Use format like CSE 381"); notify("Use format like CSE 381", "error"); return; }
         const subj = m[1].toUpperCase();
@@ -500,12 +638,14 @@ export default function App() {
             ... on ErrorCourse { error message }
           }
         }`;
+        let list = [];
         try {
             setLoading(true);
+            setSearchResults([]); // Clear previous results while loading
             const res = await fetch(GRAPHQL_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query }) });
             const data = await res.json();
             const node = data?.data?.getCourseByInfo;
-            const list = node?.courses ?? [];
+            list = node?.courses ?? [];
             if (list.length === 0) {
                 notify(node?.message || "No results found", "error");
             }
@@ -513,7 +653,28 @@ export default function App() {
         } catch {
             setLastError("Search failed");
             notify("Search failed", "error");
-        } finally { setLoading(false); }
+        } finally {
+            setLoading(false);
+
+            // Clear any existing timeout
+            if (searchCooldownTimeoutRef.current) {
+                clearTimeout(searchCooldownTimeoutRef.current);
+            }
+
+            // Clear cooldown immediately if results returned, otherwise after 2 seconds
+            if (list.length > 0) {
+                searchCooldownRef.current = false;
+                setSearchCooldown(false);
+                // Scroll to results card
+                setTimeout(() => searchScrollSnapBy(1), 100);
+            } else {
+                // Reset cooldown after 2 seconds if no results
+                searchCooldownTimeoutRef.current = setTimeout(() => {
+                    searchCooldownRef.current = false;
+                    setSearchCooldown(false);
+                }, 2000);
+            }
+        }
     };
 
     // Snap scroll indicator effects
@@ -534,54 +695,57 @@ export default function App() {
         };
     }, []);
 
-    // Fetch terms once (best-effort)
-    useEffect(() => {
-        (async () => {
-            setTermsLoading(true);
+    // Fetch terms function (can be called on reload)
+    const fetchTerms = useCallback(async () => {
+        setTermsLoading(true);
+        try {
+            const query = `
+            query {
+              getTerms {
+                ... on SuccessField {
+                  fields { name }
+                }
+                ... on ErrorField { error message }
+              }
+            }
+            `;
+            let data = null;
             try {
-                const query = `
-                query {
-                  getTerms {
-                    ... on SuccessField {
-                      fields { name }
-                    }
-                    ... on ErrorField { error message }
-                  }
+                const res = await fetch(GRAPHQL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) });
+                data = await res.json();
+            } catch {}
+            // If empty or error, try Electron main-process fallback
+            let node = data?.data?.getTerms || {};
+            let list = Array.isArray(node?.fields) ? node.fields : (Array.isArray(node?.terms) ? node.terms : []);
+            if ((list.length === 0 || node?.error) && window.electronAPI?.graphql) {
+                const m = await window.electronAPI.graphql(query, GRAPHQL_URL);
+                if (m?.data) {
+                    data = m.data;
+                    node = data?.data?.getTerms || {};
+                    list = Array.isArray(node?.fields) ? node.fields : (Array.isArray(node?.terms) ? node.terms : []);
                 }
-                `;
-                let data = null;
-                try {
-                    const res = await fetch(GRAPHQL_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query }) });
-                    data = await res.json();
-                } catch {}
-                // If empty or error, try Electron main-process fallback
-                let node = data?.data?.getTerms || {};
-                let list = Array.isArray(node?.fields) ? node.fields : (Array.isArray(node?.terms) ? node.terms : []);
-                if ((list.length === 0 || node?.error) && window.electronAPI?.graphql) {
-                    const m = await window.electronAPI.graphql(query, GRAPHQL_URL);
-                    if (m?.data) {
-                        data = m.data;
-                        node = data?.data?.getTerms || {};
-                        list = Array.isArray(node?.fields) ? node.fields : (Array.isArray(node?.terms) ? node.terms : []);
-                    }
-                }
-                const parsed = list.map(t => String(t?.name || '')).filter(Boolean);
-                const mapSeason = (code) => {
-                    const y = code.slice(0,4);
-                    const s = code.slice(4);
-                    const season = s === '10' ? 'Fall' : s === '15' ? 'Winter' : s === '20' ? 'Spring' : s === '30' ? 'Summer' : s;
-                    return `${season} ${y}`;
-                };
-                const seen = new Set();
-                const firstFour = [];
-                for (const c of parsed) { if (!seen.has(c)) { seen.add(c); firstFour.push(c); } if (firstFour.length === 4) break; }
-                const opts = firstFour.map(c => ({ code: c, label: mapSeason(c) }));
-                try { console.debug('terms parsed', { rawCount: list.length, parsed, firstFour: opts }); } catch {}
-                setAvailableTerms(opts);
-                if (opts.length && !opts.some(o => o.code === term)) setTerm(opts[0].code);
-            } finally { setTermsLoading(false); }
-        })();
-    }, []);
+            }
+            const parsed = list.map(t => String(t?.name || '')).filter(Boolean);
+            const mapSeason = (code) => {
+                const y = code.slice(0,4);
+                const s = code.slice(4);
+                const season = s === '10' ? 'Fall' : s === '15' ? 'Winter' : s === '20' ? 'Spring' : s === '30' ? 'Summer' : s;
+                return `${season} ${y}`;
+            };
+            const seen = new Set();
+            const firstFour = [];
+            for (const c of parsed) { if (!seen.has(c)) { seen.add(c); firstFour.push(c); } if (firstFour.length === 4) break; }
+            const opts = firstFour.map(c => ({ code: c, label: mapSeason(c) }));
+            try { console.debug('terms parsed', { rawCount: list.length, parsed, firstFour: opts }); } catch {}
+            setAvailableTerms(opts);
+            if (opts.length && !opts.some(o => o.code === term)) setTerm(opts[0].code);
+        } finally { setTermsLoading(false); }
+    }, [term]);
+
+    // Fetch terms once on mount
+    useEffect(() => {
+        fetchTerms();
+    }, [fetchTerms]);
 
     // Smooth scroll helper with slower, smoother easing
     const animateScrollTo = (el, to, duration = 750) => {
@@ -676,6 +840,7 @@ export default function App() {
                 if (Array.isArray(cfg.campus)) setCampus(cfg.campus);
                 if (typeof cfg.term === 'string') setTerm(cfg.term);
                 if (typeof cfg.optimizeFreeTime === 'boolean') setOptimizeFreeTime(cfg.optimizeFreeTime);
+                if (typeof cfg.ignoreWeb === 'boolean') setIgnoreWeb(cfg.ignoreWeb);
                 if (typeof cfg.darkMode === 'boolean') setDarkMode(cfg.darkMode);
                 if (Array.isArray(cfg.timeRange) && cfg.timeRange.length === 2) setTimeRange(cfg.timeRange);
                 if (Array.isArray(cfg.courses)) setCourses(cfg.courses);
@@ -693,6 +858,7 @@ export default function App() {
                     campus,
                     term,
                     optimizeFreeTime,
+                    ignoreWeb,
                     darkMode,
                     timeRange,
                     courses,
@@ -720,14 +886,14 @@ export default function App() {
     const prevCfgRef = useRef(null);
     useEffect(() => {
         if (!hydratedRef.current) return;
-        const cfg = { campus, term, optimizeFreeTime, darkMode, timeRange, courses, fillerAttrs, activePage };
+        const cfg = { campus, term, optimizeFreeTime, ignoreWeb, darkMode, timeRange, courses, fillerAttrs, activePage };
         const prev = prevCfgRef.current ? JSON.stringify(prevCfgRef.current) : null;
         const cur = JSON.stringify(cfg);
         if (prev !== cur) {
             prevCfgRef.current = cfg;
             writeConfigBridge(cfg);
         }
-    }, [campus, term, optimizeFreeTime, darkMode, timeRange, courses, fillerAttrs, activePage]);
+    }, [campus, term, optimizeFreeTime, ignoreWeb, darkMode, timeRange, courses, fillerAttrs, activePage]);
 
     // (Removed proactive dirtying/snapping; we now decide only on Planner nav)
 
@@ -778,7 +944,7 @@ export default function App() {
                 {showSplash && (
                     <div className="splash-overlay">
                         <div className="splash-card">
-                            <div className="splash-title">ClassHelper</div>
+                            <div className="splash-title">Classhelper</div>
                             <div className="splash-subtitle">Loading planner…</div>
                         </div>
                     </div>
@@ -902,7 +1068,7 @@ export default function App() {
                                         />
                         <div className="btn-row" style={{ marginTop: "10px" }}>
                                             <button className="add-btn" onClick={addCourse}>Add</button>
-                                            <button className={`generate-btn ${isGenerating ? 'loading' : ''}`} onClick={getSchedules} disabled={isGenerating}>{isGenerating ? 'Generating…' : 'Generate'}</button>
+                                            <button className={`generate-btn ${isGenerating ? 'loading' : ''}`} onClick={getSchedules} disabled={isGenerating || generateCooldown}>{isGenerating ? 'Generating…' : generateCooldown ? 'Please wait...' : 'Generate'}</button>
                                         </div>
                                         {needsRegenerate && (
                                             <div className="regen-indicator">Settings changed — regenerate to update results</div>
@@ -1022,7 +1188,7 @@ export default function App() {
                                                         </div>
                                                         <input className="input-box input-dark" placeholder="e.g., 12384" value={crnInput} onChange={(e) => setCrnInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchByCRN(); setTimeout(() => searchScrollSnapBy(1), 0); } }} />
                                                         <div className="btn-row compact">
-                                                            <button className="generate-btn btn-small" onClick={() => { searchByCRN(); setTimeout(() => searchScrollSnapBy(1), 0); }}>Search CRN</button>
+                                                            <button className={`generate-btn btn-small ${loading ? 'loading' : ''}`} onClick={() => { searchByCRN(); }} disabled={searchCooldown || loading}>{loading ? 'Loading...' : searchCooldown ? 'Please wait...' : 'Search CRN'}</button>
                                                         </div>
                                                     </div>
                                                     <div className="search-subcard">
@@ -1034,7 +1200,7 @@ export default function App() {
                                                         </div>
                                                         <input className="input-box input-dark" placeholder="e.g., CSE 381" value={courseSearchInput} onChange={(e) => setCourseSearchInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); searchByInfo(); setTimeout(() => searchScrollSnapBy(1), 0); } }} />
                                                         <div className="btn-row compact">
-                                                            <button className="generate-btn btn-small" onClick={() => { searchByInfo(); setTimeout(() => searchScrollSnapBy(1), 0); }}>Search Course</button>
+                                                            <button className={`generate-btn btn-small ${loading ? 'loading' : ''}`} onClick={() => { searchByInfo(); }} disabled={searchCooldown || loading}>{loading ? 'Loading...' : searchCooldown ? 'Please wait...' : 'Search Course'}</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1094,9 +1260,9 @@ export default function App() {
                         </div>
                     </div>
                 )}
-                
+
                 {activePage === "prefs" && <div className={`prefs-panel page-anim ${animOut ? 'anim-out' : ''} ${animIn ? 'anim-in' : ''}`}>
-                    <div className="panel prefs-panel">
+                    <div className="panel prefs-panel" style={{ maxHeight: '100%', overflowY: 'auto' }}>
                         <h4>Preferences</h4>
 
                         <div className="prefs-row">
@@ -1145,7 +1311,17 @@ export default function App() {
                                 ) : termsLoading ? (
                                     <span className="muted">Loading terms…</span>
                                 ) : (
-                                    <span className="muted">No terms available</span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span className="muted">No terms available</span>
+                                        <button
+                                            className="choice-button"
+                                            onClick={fetchTerms}
+                                            style={{ padding: '4px 12px', fontSize: '0.85rem' }}
+                                            title="Reload terms"
+                                        >
+                                            <IoRefresh size={16} />
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -1159,6 +1335,19 @@ export default function App() {
                             </span>
                             <label className="switch">
                                 <input type="checkbox" checked={optimizeFreeTime} onChange={() => setOptimizeFreeTime(!optimizeFreeTime)} />
+                                <span className="slider round" />
+                            </label>
+                        </div>
+
+                        <div className="switch-container">
+                            <span>
+                                Ignore Web Courses
+                                <div className="info-container">
+<InfoTip isDark={darkMode} content={<span>When enabled, filler course searches will exclude web-based courses.</span>} />
+                                </div>
+                            </span>
+                            <label className="switch">
+                                <input type="checkbox" checked={ignoreWeb} onChange={() => setIgnoreWeb(!ignoreWeb)} />
                                 <span className="slider round" />
                             </label>
                         </div>

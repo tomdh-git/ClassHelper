@@ -25,7 +25,7 @@
   "build": {
     "appId": "com.classhelper.app",
     "asar": true,
-    "compression": "store",
+    "compression": "maximum",
     "npmRebuild": false,
     "files": [
       "build/**/*",
@@ -35,7 +35,7 @@
     ],
     "win": {
       "target": "portable",
-      "icon": "build/icon.ico"
+      "icon": "build/icon.png"
     },
     "icon": "build/icon.png",
     "electronDownload": {
