@@ -565,10 +565,10 @@ export default function App() {
         }
         const query = `
         query {
-          getCourseByCRN(
+          getCourseByCRN(input:{
             crn: ${crn}
             term: "${term}"
-          ) {
+          }) {
             ... on SuccessCourse {
               courses { subject courseNum title section crn campus credits capacity requests delivery }
             }
@@ -637,12 +637,12 @@ export default function App() {
         const campusLine = campusArg ? `${campusArg}` : "";
         const query = `
         query {
-          getCourseByInfo(
+          getCourseByInfo(input:{
             term: "${term}"
             ${campusLine}
             subject: ["${subj}"]
             courseNum: "${num}"
-          ) {
+          }) {
             ... on SuccessCourse {
               courses { subject courseNum title section crn campus credits capacity requests delivery }
             }
