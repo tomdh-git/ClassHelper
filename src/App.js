@@ -386,14 +386,14 @@ export default function App() {
 
         const buildScheduleQuery = () => `
         query {
-          getScheduleByCourses(
+          getScheduleByCourses(input:{
             courses: ${toGqlStringArray(courseVals)}
             campus: ${toGqlStringArray(campus)}
             term: "${term}"\r
             optimizeFreeTime: ${optimizeFreeTime}
             ${baseTimeLines}
             delivery: ${toGqlStringArray(delivery)}
-          ) {
+          }) {
             ... on SuccessSchedule {
               schedules { courses { subject courseNum crn delivery } ${freeTimeFields} }
             }
@@ -403,14 +403,14 @@ export default function App() {
 
         const buildFillerQuery = () => `
         query {
-          getFillerByAttributes(
+          getFillerByAttributes(input:{
             attributes: ${toGqlStringArray(fillerAttrUnion)}
             courses: ${toGqlStringArray(courseVals)}
             campus: ${toGqlStringArray(campus)}
             term: "${term}"\r
             ${baseTimeLines}
             delivery: ${toGqlStringArray(delivery)}
-          ) {
+          }) {
             ... on SuccessSchedule {
               schedules { courses { subject courseNum crn delivery } ${freeTimeFields} }
             }
